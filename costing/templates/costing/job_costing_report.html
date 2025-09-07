@@ -1,0 +1,82 @@
+{% extends 'base.html' %}
+{% load humanize %}
+{% load crispy_forms_tags %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-sm-flex align-items-center justify-content-between mb-4">
+        <h1 class="h3 mb-0 text-gray-800">{{ title }}</h1>
+    </div>
+
+    {% if user.is_superuser %}
+    <div class="card shadow mb-4">
+        <div class="card-header py-3">
+            <h6 class="m-0 font-weight-bold text-primary"><i class="fas fa-filter me-1"></i> Filter Report</h6>
+        </div>
+        <div class="card-body">
+            <form method="get" action="">
+                <div class="row g-3 align-items-end">
+                    <div class="col-md-3">{{ filter_form.start_date|as_crispy_field }}</div>
+                    <div class="col-md-3">{{ filter_form.end_date|as_crispy_field }}</div>
+                    <div class="col-md-2">{{ filter_form.warehouse|as_crispy_field }}</div>
+                    <div class="col-md-2">{{ filter_form.user|as_crispy_field }}</div>
+                    <div class="col-md-2 d-flex">
+                        <button type="submit" class="btn btn-primary me-2 flex-grow-1">Apply</button>
+                        <a href="{% url 'costing:job_costing_report' %}" class="btn btn-secondary flex-grow-1">Reset</a>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+    {% endif %}
+
+    <div class="card shadow mb-4">
+        <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
+            <h6 class="m-0 font-weight-bold text-primary">Job Costing Data</h6>
+            {% if user.is_superuser %}
+            <a href="{% url 'costing:export_job_costing_pdf' %}?{{ request.GET.urlencode }}" class="btn btn-secondary btn-sm">
+                <i class="fas fa-file-pdf fa-sm me-1"></i> Export to PDF
+            </a>
+            {% endif %}
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover" width="100%" cellspacing="0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Sales Order #</th>
+                            <th>Order Date</th>
+                            <th class="text-end">Total Revenue</th>
+                            <th class="text-end">Material Cost</th>
+                            <th class="text-end">Profit / Loss</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for job in page_obj %}
+                        <tr>
+                            <td><a href="{% url 'sales:sales_order_detail' job.sales_order.pk %}">SO-{{ job.sales_order.pk }}</a></td>
+                            <td>{{ job.sales_order.created_at|date:"d M, Y" }}</td>
+                            <td class="text-end">{{ job.total_revenue|intcomma }}</td>
+                            <td class="text-end">{{ job.total_material_cost|intcomma }}</td>
+                            <td class="text-end {% if job.profit >= 0 %}text-success{% else %}text-danger{% endif %} fw-bold">
+                                {{ job.profit|intcomma }}
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="5" class="text-center">No costing data found.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            
+            {% if page_obj.has_other_pages %}
+                {% include 'includes/pagination.html' with page_obj=page_obj %}
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
