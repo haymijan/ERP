@@ -1,0 +1,34 @@
+{% extends "admin/index.html" %}
+{% load i18n %}
+
+{# বাম দিকের মূল কন্টেন্ট ব্লক #}
+{% block content %}
+<div id="content-main">
+    {# Django-এর মূল অ্যাপ লিস্ট এখানে লোড হবে #}
+    {{ block.super }}
+
+    {# আমাদের কাস্টম "System Management" সেকশনটি এখানে যোগ করা হলো #}
+    <div class="app-management module">
+        <table>
+            <caption>
+                <a href="#" class="section" title="Custom Management Tools">{% trans 'System Management' %}</a>
+            </caption>
+            <tbody>
+                <tr class="model-backup-restore">
+                    <th scope="row">
+                        <a href="{% url 'management:backup_restore' %}">Backup & Restore</a>
+                    </th>
+                    <td>
+                        <a href="{% url 'management:backup_restore' %}" class="viewlink">{% trans 'Go to Page' %}</a>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
+
+{# ডান দিকের সাইডবার ব্লক, যেখানে "Recent Actions" থাকে #}
+{% block sidebar %}
+    {{ block.super }}
+{% endblock %}

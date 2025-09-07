@@ -1,0 +1,304 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load humanize %}
+
+{% block title %}Dashboard | Novo ERP {% endblock %}
+{% block page_title %}Inventory Overview{% endblock %}
+
+{% block content %}
+<link rel="stylesheet" href="{% static 'css/style.css' %}">
+<div class="container-fluid">
+
+    <div class="card filter-card-modern mb-2">
+        <div class="card-body filter-bar">
+            <div class="filter-presets">
+                <a href="?period=today" class="btn filter-btn {% if period == 'today' %}active{% endif %}">Today</a>
+                <a href="?period=week" class="btn filter-btn {% if period == 'week' %}active{% endif %}">This Week</a>
+                <a href="?period=month" class="btn filter-btn {% if period == 'month' %}active{% endif %}">This Month</a>
+            </div>
+            <form method="get" action="{% url 'dashboard' %}" class="date-filter-form">
+                <label for="start_date" class="form-label mb-0">Start Date</label>
+                <input type="date" class="form-control" id="start_date" name="start_date" value="{{ start_date|date:'Y-m-d'|default:'' }}">
+                
+                <label for="end_date" class="form-label mb-0 ms-2">End Date</label>
+                <input type="date" class="form-control" id="end_date" name="end_date" value="{{ end_date|date:'Y-m-d'|default:'' }}">
+                
+                <button type="submit" class="btn btn-primary ms-2"><i class="fas fa-filter me-1"></i> Filter</button>
+                <a href="{% url 'dashboard' %}" class="btn btn-secondary"><i class="fas fa-times me-1"></i> Clear</a>
+            </form>
+        </div>
+    </div>
+
+    <div class="row g-1">
+        {% if user.is_superuser %}
+        <div class="col-xl-3 col-md-6">
+            <div class="card shadow-sm classic-card h-100">
+                <div class="card-body">
+                    <div class="text-uppercase text-sidebar-text small mb-1">Total Profit (Filtered)</div>
+                    <div class="h5 mb-0 font-weight-bold text-success">{{ DEFAULT_CURRENCY_SYMBOL }} {{ total_profit|floatformat:2|intcomma }}</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-md-6">
+            <div class="card shadow-sm classic-card h-100">
+                <div class="card-body">
+                    <div class="text-uppercase text-sidebar-text small mb-1">Inventory Turnover</div>
+                    <div class="h5 mb-0 font-weight-bold text-info">{{ inventory_turnover_ratio|floatformat:2 }}</div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+        <div class="col-xl-3 col-md-6">
+            <div class="card shadow-sm classic-card h-100">
+                <div class="card-body">
+                    <div class="text-uppercase text-sidebar-text small mb-1">Avg. Days to Sell</div>
+                    <div class="h5 mb-0 font-weight-bold text-warning">{{ avg_days_to_sell|floatformat:1 }} Days</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-md-6">
+            <a href="{% url 'reports:expiry_report' %}" class="card-link h-100">
+                <div class="card shadow-sm classic-card h-100">
+                    <div class="card-body">
+                        <div class="text-uppercase text-sidebar-text small mb-1">Expiring Soon (30 Days)</div>
+                        <div class="h5 mb-0 font-weight-bold text-danger">{{ expiring_lots_count }}</div>
+                    </div>
+                </div>
+            </a>
+        </div>
+        <div class="col-xl-3 col-md-6">
+            <a href="{% url 'reports:dead_stock_report' %}" class="card-link h-100">
+                <div class="card shadow-sm classic-card h-100">
+                    <div class="card-body">
+                        <div class="text-uppercase text-sidebar-text small mb-1">Dead Stock (90 Days)</div>
+                        <div class="h5 mb-0 font-weight-bold text-secondary">{{ dead_stock_count }}</div>
+                    </div>
+                </div>
+            </a>
+        </div>
+        <div class="col-xl-3 col-md-6">
+            <a href="{% url 'reports:purchase_suggestion_report' %}" class="card-link h-100">
+                <div class="card shadow-sm classic-card h-100">
+                    <div class="card-body">
+                        <div class="text-uppercase text-sidebar-text small mb-1">Purchase Suggestions</div>
+                        <div class="h5 mb-0 font-weight-bold text-primary">{{ purchase_suggestion_count }}</div>
+                    </div>
+                </div>
+            </a>
+        </div>
+        <div class="col-xl-3 col-md-6">
+            <div class="card shadow-sm classic-card h-100">
+                <div class="card-body">
+                    <div class="text-uppercase text-sidebar-text small mb-1">Today's Net Sales</div>
+                    <div class="h5 mb-0 font-weight-bold text-primary">{{ DEFAULT_CURRENCY_SYMBOL }} {{ todays_net_sales|floatformat:2|intcomma }}</div>
+                    <div class="text-xs mt-1">
+                        <span>Gross: {{ todays_gross_sales|floatformat:2|intcomma }}</span> | 
+                        <span>Return: {{ todays_returns_total|floatformat:2|intcomma }}</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-md-6">
+            <div class="card shadow-sm classic-card h-100">
+                <div class="card-body">
+                    <div class="text-uppercase text-sidebar-text small mb-1">This Month's Net Sales</div>
+                    <div class="h5 mb-0 font-weight-bold text-success">{{ DEFAULT_CURRENCY_SYMBOL }} {{ this_months_net_sales|floatformat:2|intcomma }}</div>
+                    <div class="text-xs mt-1">
+                        <span>Gross: {{ this_months_gross_sales|floatformat:2|intcomma }}</span> | 
+                        <span>Return: {{ this_months_returns_total|floatformat:2|intcomma }}</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-md-6">
+            <a href="{% url 'sales:sales_order_list' %}?filter=unfulfilled" class="card-link h-100">
+                <div class="card shadow-sm classic-card h-100">
+                    <div class="card-body">
+                        <div class="text-uppercase text-sidebar-text small mb-1">Unfulfilled Orders</div>
+                        <div class="h5 mb-0 font-weight-bold text-info">{{ unfulfilled_orders_count }}</div>
+                    </div>
+                </div>
+            </a>
+        </div>
+    </div>
+
+    <div class="row g-1 mt-1">
+        <div class="col-xl-2 col-md-4">
+            <a href="{% url 'products:product_list' %}" class="card-link h-100">
+                <div class="card shadow-sm classic-card h-100">
+                    <div class="card-body">
+                        <div class="text-uppercase text-sidebar-text small mb-1">Total Products</div>
+                        <div class="h5 mb-0 font-weight-bold text-primary">{{ total_products }}</div>
+                    </div>
+                </div>
+            </a>
+        </div>
+        <div class="col-xl-2 col-md-4">
+            <a href="{% url 'products:product_list' %}?status=in_stock" class="card-link h-100">
+                <div class="card shadow-sm classic-card h-100">
+                    <div class="card-body">
+                        <div class="text-uppercase text-sidebar-text small mb-1">In Stock</div>
+                        <div class="h5 mb-0 font-weight-bold text-success">{{ in_stock_products }}</div>
+                    </div>
+                </div>
+            </a>
+        </div>
+        <div class="col-xl-2 col-md-4">
+            <a href="{% url 'products:product_list' %}?status=low_stock" class="card-link h-100">
+                <div class="card shadow-sm classic-card h-100">
+                    <div class="card-body">
+                        <div class="text-uppercase text-sidebar-text small mb-1">Low Stock</div>
+                        <div class="h5 mb-0 font-weight-bold text-warning">{{ low_stock_products_count }}</div>
+                    </div>
+                </div>
+            </a>
+        </div>
+        <div class="col-xl-2 col-md-4">
+            <a href="{% url 'products:product_list' %}?status=out_of_stock" class="card-link h-100">
+                <div class="card shadow-sm classic-card h-100">
+                    <div class="card-body">
+                        <div class="text-uppercase text-sidebar-text small mb-1">Out of Stock</div>
+                        <div class="h5 mb-0 font-weight-bold text-danger">{{ out_of_stock_products }}</div>
+                    </div>
+                </div>
+            </a>
+        </div>
+        <div class="col-xl-2 col-md-4">
+            <a href="{% url 'partners:customer_list' %}" class="card-link h-100">
+                <div class="card shadow-sm classic-card h-100">
+                    <div class="card-body">
+                        <div class="text-uppercase text-sidebar-text small mb-1">Customers</div>
+                        <div class="h5 mb-0 font-weight-bold text-info">{{ total_customers }}</div>
+                    </div>
+                </div>
+            </a>
+        </div>
+        <div class="col-xl-2 col-md-4">
+            <a href="{% url 'partners:supplier_list' %}" class="card-link h-100">
+                <div class="card shadow-sm classic-card h-100">
+                    <div class="card-body">
+                        <div class="text-uppercase text-sidebar-text small mb-1">Suppliers</div>
+                        <div class="h5 mb-0 font-weight-bold text-secondary">{{ total_suppliers }}</div>
+                    </div>
+                </div>
+            </a>
+        </div>
+    </div>
+
+    <div class="row mt-1 g-1">
+        <div class="col-lg-8 mb-2">
+            <div class="card chart-box shadow-sm">
+                <div class="card-header py-2"><h6 class="m-0 font-weight-bold text-primary">Monthly Sales & Returns</h6></div>
+                <div class="card-body p-2"><div style="height: 220px;"><canvas id="monthlySalesChart"></canvas></div></div>
+            </div>
+        </div>
+        <div class="col-lg-4 mb-2">
+            <div class="card chart-box shadow-sm">
+                <div class="card-header py-2"><h6 class="m-0 font-weight-bold text-primary">Products by Category</h6></div>
+                <div class="card-body p-2"><div style="height: 220px;"><canvas id="categoryPieChart"></canvas></div></div>
+            </div>
+        </div>
+    </div>
+    <div class="row g-1 mt-1">
+        <div class="col-lg-8 mb-2">
+            <div class="card chart-box shadow-sm">
+                <div class="card-header py-2"><h6 class="m-0 font-weight-bold text-primary">Monthly Order Trend</h6></div>
+                <div class="card-body p-2"><div style="height: 220px;"><canvas id="monthlyOrdersChart"></canvas></div></div>
+            </div>
+        </div>
+        <div class="col-lg-4 mb-2">
+            <div class="card chart-box shadow-sm">
+                <div class="card-header py-2"><h6 class="m-0 font-weight-bold text-primary">Stock Status</h6></div>
+                <div class="card-body p-2"><div style="height: 220px;"><canvas id="stockStatusBarChart"></canvas></div></div>
+            </div>
+        </div>
+    </div>
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+// Chart JS code remains the same
+document.addEventListener("DOMContentLoaded", function () {
+    const pieChartColors = ['#4e73df', '#1cc88a', '#36b9cc', '#f6c23e', '#858796', '#e74a3b', '#5a5c69'];
+    const barChartColors = {'In Stock': '#1cc88a', 'Low Stock': '#f6c23e', 'Out of Stock': '#e74a3b'};
+    const statusLabels = {{ status_labels|safe }};
+    const backgroundColors = statusLabels.map(label => barChartColors[label] || '#858796');
+
+    new Chart(document.getElementById("categoryPieChart"), {
+        type: 'doughnut',
+        data: {
+            labels: {{ category_labels|safe }},
+            datasets: [{ data: {{ category_data|safe }}, backgroundColor: pieChartColors, borderColor: '#fff', borderWidth: 2 }]
+        },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { boxWidth: 12 } } } }
+    });
+
+    new Chart(document.getElementById("stockStatusBarChart"), {
+        type: 'bar',
+        data: {
+            labels: statusLabels,
+            datasets: [{ data: {{ status_data|safe }}, backgroundColor: backgroundColors, borderRadius: 5, maxBarThickness: 50 }]
+        },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } }
+    });
+
+    const monthlySalesLabels = {{ monthly_sales_labels|safe }};
+    const monthlySalesData = {{ monthly_sales_data|safe }};
+    const monthlyReturnsData = {{ monthly_returns_data|safe }};
+    new Chart(document.getElementById("monthlySalesChart"), {
+        type: 'bar',
+        data: {
+            labels: monthlySalesLabels,
+            datasets: [
+                {
+                    label: 'Total Sales',
+                    data: monthlySalesData,
+                    backgroundColor: '#4e73df',
+                    borderColor: '#4e73df',
+                    borderWidth: 1,
+                    borderRadius: 5,
+                },
+                {
+                    label: 'Total Returns',
+                    data: monthlyReturnsData,
+                    backgroundColor: '#e74a3b',
+                    borderColor: '#e74a3b',
+                    borderWidth: 1,
+                    borderRadius: 5,
+                }
+            ]
+        },
+        options: { 
+            responsive: true, 
+            maintainAspectRatio: false,
+            plugins: { 
+                legend: { position: 'top' } 
+            },
+            scales: {
+                x: { grid: { display: false } },
+                y: { beginAtZero: true }
+            }
+        }
+    });
+
+    const monthlyOrdersLabels = {{ monthly_orders_labels|safe }};
+    const monthlyOrdersData = {{ monthly_orders_data|safe }};
+    new Chart(document.getElementById("monthlyOrdersChart"), {
+        type: 'bar',
+        data: {
+            labels: monthlyOrdersLabels,
+            datasets: [{ label: 'Number of Orders', data: monthlyOrdersData, backgroundColor: '#1cc88a', borderRadius: 5, maxBarThickness: 50 }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: { y: { ticks: { stepSize: 1, callback: function(value) { if (Number.isInteger(value)) { return value; } } } } }
+        }
+    });
+});
+</script>
+{% endblock %}

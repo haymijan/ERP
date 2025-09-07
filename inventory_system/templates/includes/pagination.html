@@ -1,0 +1,39 @@
+{# inventory_system/templates/includes/pagination.html #}
+
+{% if page_obj.has_other_pages %}
+<nav aria-label="Page navigation" class="mt-4">
+    <ul class="pagination justify-content-center">
+
+        {# ಹಿಂದಿನ পৃষ্ঠা বা Previous বাটন #}
+        {% if page_obj.has_previous %}
+            <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.previous_page_number }}&amp;{{ request.GET.urlencode | cut:'page=' }}" aria-label="Previous">
+                    <span aria-hidden="true">&laquo;</span>
+                </a>
+            </li>
+        {% else %}
+            <li class="page-item disabled"><span class="page-link">&laquo;</span></li>
+        {% endif %}
+
+        {# পৃষ্ঠার নম্বরগুলো #}
+        {% for i in page_obj.paginator.page_range %}
+            {% if page_obj.number == i %}
+                <li class="page-item active" aria-current="page"><span class="page-link">{{ i }}</span></li>
+            {% else %}
+                <li class="page-item"><a class="page-link" href="?page={{ i }}&amp;{{ request.GET.urlencode | cut:'page=' }}">{{ i }}</a></li>
+            {% endif %}
+        {% endfor %}
+
+        {# পরের পৃষ্ঠা বা Next বাটন #}
+        {% if page_obj.has_next %}
+            <li class="page-item">
+                 <a class="page-link" href="?page={{ page_obj.next_page_number }}&amp;{{ request.GET.urlencode | cut:'page=' }}" aria-label="Next">
+                    <span aria-hidden="true">&raquo;</span>
+                </a>
+            </li>
+        {% else %}
+            <li class="page-item disabled"><span class="page-link">&raquo;</span></li>
+        {% endif %}
+    </ul>
+</nav>
+{% endif %}

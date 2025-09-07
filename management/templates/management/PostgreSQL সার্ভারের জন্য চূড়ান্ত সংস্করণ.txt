@@ -1,0 +1,75 @@
+{% extends 'base.html' %}
+{% load humanize %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <h1 class="h3 mb-2 text-gray-800">{{ title }}</h1>
+    <p class="mb-4">Create and restore database and media file backups. Storage Path: <code>{{ storage_path }}</code></p>
+
+    <div class="card shadow mb-4">
+        <div class="card-header py-3">
+            <h6 class="m-0 font-weight-bold text-primary">Actions</h6>
+        </div>
+        <div class="card-body">
+            <form method="post" class="d-inline-block">
+                {% csrf_token %}
+                <button type="submit" name="create_backup" class="btn btn-primary">
+                    <i class="fas fa-plus-circle me-2"></i>Create New Full Backup (DB + Media)
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <div class="card shadow mb-4">
+        <div class="card-header py-3">
+            <h6 class="m-0 font-weight-bold text-primary">Available Backup Files</h6>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-bordered" width="100%" cellspacing="0">
+                    <thead>
+                        <tr>
+                            <th>Filename</th>
+                            <th>Size</th>
+                            <th>Date Created</th>
+                            <th>Type</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for file in backup_files %}
+                        <tr>
+                            <td>{{ file.name }}</td>
+                            <td>{{ file.size|filesizeformat }}</td>
+                            <td>{{ file.date|date:"Y-m-d H:i:s" }}</td>
+                            <td>
+                                {% if file.is_db %}
+                                <span class="badge bg-primary">Database</span>
+                                {% else %}
+                                <span class="badge bg-info">Media</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <form method="post" class="d-inline-block" onsubmit="return confirm('Are you sure you want to restore from this backup? This action cannot be undone.');">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="filename" value="{{ file.name }}">
+                                    <button type="submit" name="restore_backup" class="btn btn-success btn-sm">
+                                        Restore
+                                    </button>
+                                </form>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="5" class="text-center">No backup files found.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,157 @@
+{# inventory_system/templates/login.html #}
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Login - NOVO ERP V.2</title>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: 'Poppins', sans-serif;
+      height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      background: linear-gradient(135deg, #e0e7ff, #f8fafc);
+    }
+    .login-container {
+      background: rgba(255, 255, 255, 0.9);
+      border-radius: 16px;
+      padding: 40px 35px;
+      width: 360px;
+      text-align: center;
+      color: #333;
+      box-shadow: 0 6px 20px rgba(0,0,0,0.1);
+      animation: fadeIn 1s ease-in-out;
+    }
+    .login-container h2 {
+      margin-bottom: 25px;
+      font-size: 26px;
+      font-weight: 600;
+      color: #2B3674;
+    }
+    .form-group {
+      margin-bottom: 18px;
+      text-align: left;
+      position: relative;
+    }
+    .form-group label {
+      font-size: 14px;
+      font-weight: 500;
+      margin-bottom: 6px;
+      display: block;
+      color: #444;
+    }
+    .login-container input {
+      width: 100%;
+      padding: 12px;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      font-size: 15px;
+      box-sizing: border-box;
+    }
+    .login-container input:focus {
+      border-color: #667eea;
+      outline: none;
+    }
+    /* Password toggle icon */
+    .toggle-password {
+      position: absolute;
+      top: 40px;
+      right: 12px;
+      cursor: pointer;
+      color: #666;
+    }
+    .login-container button {
+      width: 100%;
+      padding: 12px;
+      border: none;
+      border-radius: 8px;
+      background: linear-gradient(135deg, #667eea, #764ba2);
+      color: white;
+      font-size: 17px;
+      font-weight: 600;
+      cursor: pointer;
+      margin-top: 10px;
+      transition: 0.3s;
+    }
+    .login-container button:hover {
+      background: linear-gradient(135deg, #5563c1, #5c3c8a);
+    }
+    .extra {
+      margin-top: 18px;
+      font-size: 14px;
+    }
+    .extra a {
+      color: #2B3674;
+      text-decoration: none;
+      font-weight: bold;
+    }
+    .alert {
+      background: rgba(255, 0, 0, 0.1);
+      color: #b91c1c;
+      padding: 10px;
+      border-radius: 8px;
+      font-size: 14px;
+      margin-top: 15px;
+      text-align: left;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(-25px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+  </style>
+</head>
+<body>
+  <div class="login-container">
+    <h2>Welcome Back</h2>
+    <form method="post" autocomplete="off">
+      {% csrf_token %}
+      <div class="form-group">
+        <label for="id_username">Username</label>
+        <input type="text" name="username" id="id_username" placeholder="Enter your username" required>
+      </div>
+      <div class="form-group">
+        <label for="id_password">Password</label>
+        <input type="password" name="password" id="id_password" placeholder="Enter your password" required>
+        <i class="fa fa-eye toggle-password" onclick="togglePassword()"></i>
+      </div>
+      <button type="submit">Login</button>
+    </form>
+
+    {% if form.errors %}
+      <div class="alert">
+        Your username and password didn’t match. Please try again.
+      </div>
+    {% endif %}
+
+    <div class="extra">
+      <p>Forgot your password? <a href="{% url 'password_reset' %}">Reset</a></p>
+    </div>
+    <div class="extra" style="margin-top:20px; font-size:12px; opacity:0.8;">
+      &copy; {% now "Y" %} NOVO ERP. All rights reserved.
+    </div>
+  </div>
+
+  <script>
+    function togglePassword() {
+      const passwordInput = document.getElementById("id_password");
+      const toggleIcon = document.querySelector(".toggle-password");
+      if (passwordInput.type === "password") {
+        passwordInput.type = "text";
+        toggleIcon.classList.remove("fa-eye");
+        toggleIcon.classList.add("fa-eye-slash");
+      } else {
+        passwordInput.type = "password";
+        toggleIcon.classList.remove("fa-eye-slash");
+        toggleIcon.classList.add("fa-eye");
+      }
+    }
+  </script>
+</body>
+</html>

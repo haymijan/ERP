@@ -1,0 +1,105 @@
+{% extends 'base.html' %}
+{% load humanize %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <h1 class="h3 mb-2 text-gray-800">{{ title }}</h1>
+    <p class="mb-4">Create and restore database and media file backups. Storage Path: <code>{{ storage_path }}</code></p>
+
+    <div class="alert alert-warning">
+        <h4 class="alert-heading"><i class="fas fa-exclamation-triangle"></i> Important Note for Database Restore!</h4>
+        <p>
+            For data safety, database restore must be done from the command line when the server is stopped.
+            Please follow these steps:
+        </p>
+        <hr>
+        <ol class="mb-0">
+            <li><strong>Stop the server:</strong> Press <code>Ctrl + C</code> in the terminal where the server is running.</li>
+            <li><strong>Run restore command:</strong> Open a new terminal in your project folder and run:<br>
+                <code>python manage.py dbrestore --uncompress -i YOUR_DATABASE_BACKUP_FILE.gz</code>
+            </li>
+            <li><strong>Restart the server:</strong> Run <code>python manage.py runserver</code> to start the application again.</li>
+        </ol>
+        <p class="mt-2">Replace <code>YOUR_DATABASE_BACKUP_FILE.gz</code> with the actual filename from the list below.</p>
+    </div>
+
+    <div class="card shadow mb-4">
+        <div class="card-header py-3">
+            <h6 class="m-0 font-weight-bold text-primary">Actions</h6>
+        </div>
+        <div class="card-body">
+            <form method="post" class="d-inline-block">
+                {% csrf_token %}
+                <button type="submit" name="create_backup" class="btn btn-primary">
+                    <i class="fas fa-plus-circle me-2"></i>Create New Full Backup (DB + Media)
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <div class="card shadow mb-4">
+        <div class="card-header py-3">
+            <h6 class="m-0 font-weight-bold text-primary">Available Backup Files</h6>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-bordered" width="100%" cellspacing="0">
+                    <thead>
+                        <tr>
+                            <th>Filename</th>
+                            <th>Size</th>
+                            <th>Date Created</th>
+                            <th>Type</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for file in backup_files %}
+                        <tr>
+                            <td>{{ file.name }}</td>
+                            <td>{{ file.size|filesizeformat }}</td>
+                            <td>{{ file.date|date:"Y-m-d H:i:s" }}</td>
+                            <td>
+                                {% if file.is_db %}
+                                <span class="badge bg-primary">Database</span>
+                                {% else %}
+                                <span class="badge bg-info">Media</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if file.is_db %}
+                                    <button class="btn btn-secondary btn-sm" disabled title="Please use command line to restore database">
+                                        Restore DB
+                                    </button>
+                                {% else %}
+                                <form method="post" action="{% url 'management:backup_restore' %}" class="d-inline-block" onsubmit="return confirm('Are you sure you want to restore media files from this backup?');">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="filename" value="{{ file.name }}">
+                                    <button type="submit" name="restore_media" class="btn btn-success btn-sm">
+                                        Restore Media
+                                    </button>
+                                </form>
+                                {% endif %}
+
+                                <form method="post" action="{% url 'management:delete_backup' file.name %}" class="d-inline-block" onsubmit="return confirm('Are you sure you want to permanently delete this backup file?');">
+                                    {% csrf_token %}
+                                    <button type="submit" class="btn btn-danger btn-sm">
+                                        Delete
+                                    </button>
+                                </form>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="5" class="text-center">No backup files found.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

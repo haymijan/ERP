@@ -1,0 +1,26 @@
+<!-- inventory/templates/inventory/confirm_delete.html -->
+{% extends 'base.html' %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8 col-lg-6">
+        <div class="card shadow-sm mt-4">
+            <div class="card-header bg-danger text-white text-center py-3">
+                <h2 class="mb-0">Confirm Deletion</h2>
+            </div>
+            <div class="card-body p-4">
+                <p class="lead text-center mb-4">Are you sure you want to delete "{{ object }}"?</p>
+                <form method="post">
+                    {% csrf_token %}
+                    <div class="d-grid gap-2">
+                        <button type="submit" class="btn btn-danger btn-lg">Yes, Delete</button>
+                        <a href="javascript:history.back()" class="btn btn-outline-secondary btn-lg">Cancel</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
