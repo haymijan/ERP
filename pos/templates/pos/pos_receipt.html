@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Receipt - Order #{{ order.id }}</title>
+    <style>
+        /* --- মূল পরিবর্তন এখানে --- */
+        /* এই CSS কোডটি থার্মাল প্রিন্টারের জন্য বিশেষভাবে তৈরি */
+        @media print {
+            body {
+                -webkit-print-color-adjust: exact;
+                margin: 0;
+                padding: 0;
+            }
+            .no-print { display: none; }
+        }
+        /* প্রিন্টারের কাগজের সাইজ নির্ধারণ */
+        @page {
+            size: 80mm auto; /* প্রস্থ ৮০ মিমি, উচ্চতা অটো */
+            margin: 5mm;
+        }
+        
+        body {
+            font-family: 'monospace', 'Courier New', Courier;
+            width: 280px; /* ৮০ মিমি কাগজের জন্য উপযুক্ত প্রস্থ */
+            margin: 0 auto;
+            color: #000;
+            font-size: 10pt;
+        }
+        .receipt-header { text-align: center; margin-bottom: 10px; }
+        .receipt-header h4 { margin: 0; font-size: 1.1rem; }
+        .receipt-header p { margin: 2px 0; font-size: 0.8rem; }
+
+        .item-list { width: 100%; border-collapse: collapse; }
+        .item-list th, .item-list td { padding: 3px 0; font-size: 0.8rem; vertical-align: top;}
+        .item-list thead th { border-bottom: 1px dashed #000; }
+        .item-list .item-name { text-align: left; }
+        .item-list .item-qty { text-align: center; }
+        .item-list .item-price { text-align: right; }
+
+        .totals-table { width: 100%; margin-top: 10px; }
+        .totals-table td { font-size: 0.9rem; padding: 2px 0; }
+        .totals-table .label { text-align: left; }
+        .totals-table .value { text-align: right; }
+
+        .thank-you { text-align: center; margin-top: 15px; font-size: 0.8rem; }
+        hr.dashed { border: 0; border-top: 1px dashed #000; margin: 5px 0; }
+    </style>
+</head>
+<body>
+    <div class="receipt-content">
+        <div class="receipt-header">
+            <h4>NOVO</h4>
+            <p>Your Trusted Store</p>
+            <p>Date: {{ order.order_date|date:"d/m/Y H:i" }}</p>
+            <p>Customer: {{ order.customer.name|default:"Walk-in Customer" }}</p>
+            <p>Receipt No: SO-{{ order.id }}</p>
+            {% if order.user %}<p>Sales By: {{ order.user.username }}</p>{% endif %}
+            {% if order.warehouse %}<p>Warehouse: {{ order.warehouse.name }}</p>{% endif %}
+        </div>
+
+        <hr class="dashed">
+
+        <table class="item-list">
+            <thead>
+                <tr>
+                    <th class="item-name">Item</th>
+                    <th class="item-qty">Qty</th>
+                    <th class="item-price">Total</th>
+                </tr>
+            </thead>
+            <tbody>
+                {# --- মূল পরিবর্তন এখানে --- #}
+                {% for item in order.items.all %}
+                <tr>
+                    <td class="item-name">{{ item.product.name }}</td>
+                    <td class="item-qty">{{ item.quantity }}</td>
+                    {# 'item.total_price' এর পরিবর্তে 'item.subtotal' ব্যবহার করা হয়েছে #}
+                    <td class="item-price">{{ DEFAULT_CURRENCY_SYMBOL }} {{ item.subtotal|floatformat:2 }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <hr class="dashed">
+
+        <table class="totals-table">
+            <tr>
+                <td class="label"><strong>Total:</strong></td>
+                <td class="value"><strong>{{ DEFAULT_CURRENCY_SYMBOL }} {{ order.total_amount|floatformat:2 }}</strong></td>
+            </tr>
+            {% if order.payment_method == 'cash' %}
+            <tr>
+                <td class="label">Cash Tendered:</td>
+                <td class="value">{{ DEFAULT_CURRENCY_SYMBOL }} {{ order.amount_tendered|floatformat:2 }}</td>
+            </tr>
+            <tr>
+                <td class="label">Change Due:</td>
+                <td class="value">{{ DEFAULT_CURRENCY_SYMBOL }} {{ order.change_due|floatformat:2 }}</td>
+            </tr>
+            {% else %}
+            <tr>
+                <td class="label">Paid by:</td>
+                <td class="value">{{ order.payment_method|capfirst }}</td>
+            </tr>
+            {% endif %}
+        </table>
+
+        <hr class="dashed">
+
+        <p class="thank-you">Thank you for your purchase!</p>
+    </div>
+
+    <script>
+        // এই জাভাস্ক্রিপ্টটি প্রিন্ট ডায়ালগ দেখানোর পর স্বয়ংক্রিয়ভাবে ট্যাবটি বন্ধ করার চেষ্টা করবে
+        window.onload = function() {
+            window.print();
+            setTimeout(function() { window.close(); }, 500);
+        };
+    </script>
+</body>
+</html>

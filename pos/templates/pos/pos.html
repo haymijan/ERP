@@ -1,0 +1,381 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Point of Sale{% endblock %}
+
+{% block content %}
+<div class="container-fluid" id="pos-container" data-placeholder-url="{% static 'images/placeholder.png' %}">
+    <div class="row">
+        <div class="col-md-7">
+            <div class="card shadow d-flex flex-column" style="height: 80vh;">
+                <div class="card-body d-flex flex-column flex-grow-1" style="overflow: hidden;">
+                    <div class="mb-3">
+                        <div class="input-group">
+                            <input type="text" id="product-search" class="form-control form-control-lg" placeholder="Search Product or Scan Barcode..." autofocus>
+                            <button class="btn btn-outline-primary" type="button" id="scan-barcode-btn" data-bs-toggle="modal" data-bs-target="#scannerModal">
+                                <i class="fas fa-barcode me-1"></i> Scan
+                            </button>
+                        </div>
+                    </div>
+                    <div id="product-list" class="flex-grow-1" style="overflow-y: auto;">
+                        <p class="text-center text-muted mt-5">Loading products...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-5">
+            <div class="card shadow d-flex flex-column" style="height: 80vh;">
+                <div class="card-header bg-primary text-white"><h5 class="m-0">Current Bill</h5></div>
+                <div class="card-body d-flex flex-column flex-grow-1" style="padding: 0; overflow: hidden;">
+                    <div id="cart-items" class="flex-grow-1" style="overflow-y: auto; padding: 1.25rem;">
+                        <p class="text-muted text-center mt-3">Cart is empty.</p>
+                    </div>
+                    <div class="cart-summary-footer">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <h5>Total:</h5>
+                            <h5 id="total-amount">0.00 {{ DEFAULT_CURRENCY_SYMBOL }}</h5>
+                        </div>
+                        <button id="checkout-btn" class="btn btn-success btn-lg w-100" disabled>Checkout</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="scannerModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header"><h5 class="modal-title">Scan Barcode</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+            <div class="modal-body"><div id="scanner-viewport" style="width: 100%; min-height: 150px;"></div></div>
+            <div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button></div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="paymentModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-sm">
+        <div class="modal-content">
+            <div class="modal-header"><h5 class="modal-title">Complete Payment</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+            <div class="modal-body">
+                <h4 class="text-center mb-3">Total Due: <span id="modalTotalDue">0.00 {{ DEFAULT_CURRENCY_SYMBOL }}</span></h4>
+                <div class="d-grid gap-2 mb-3">
+                    <button class="btn btn-primary btn-lg payment-method-btn" data-method="cash">Cash</button>
+                    <button class="btn btn-info btn-lg payment-method-btn" data-method="card">Card</button>
+                </div>
+                <div id="cash-payment-section" style="display: none;">
+                    <div class="mb-3">
+                        <label for="amountTendered" class="form-label">Amount Tendered:</label>
+                        <input type="number" class="form-control form-control-lg" id="amountTendered" step="0.01" min="0">
+                    </div>
+                    <h5 class="text-center">Change: <span id="changeDue">0.00 {{ DEFAULT_CURRENCY_SYMBOL }}</span></h5>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-success" id="confirmSaleBtn" disabled>Confirm Sale</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+
+{% block extra_js %}
+<script src="https://unpkg.com/quagga@0.12.1/dist/quagga.min.js"></script>
+
+<style>
+    .product-item { cursor: pointer; transition: background-color 0.2s ease; }
+    .product-item:hover { background-color: #f0f2f5; }
+    .product-image { height: 50px; width: 50px; object-fit: cover; border-radius: 4px; }
+    .cart-summary-footer { padding: 1rem; border-top: 1px solid #e9ecef; background-color: #fff; }
+    #scanner-viewport canvas, #scanner-viewport video { width: 100%; height: auto; }
+</style>
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    const productListDiv = document.getElementById('product-list');
+    const searchInput = document.getElementById('product-search');
+    const cartItemsDiv = document.getElementById('cart-items');
+    const totalAmountSpan = document.getElementById('total-amount');
+    const checkoutBtn = document.getElementById('checkout-btn');
+    const placeholderUrl = document.getElementById('pos-container').dataset.placeholderUrl;
+    const csrfToken = '{{ csrf_token }}';
+    const currencySymbol = '{{ DEFAULT_CURRENCY_SYMBOL }}';
+
+    const scannerModalEl = document.getElementById('scannerModal');
+    const scannerModal = new bootstrap.Modal(scannerModalEl);
+    
+    const paymentModalEl = document.getElementById('paymentModal');
+    const paymentModal = new bootstrap.Modal(paymentModalEl);
+    const modalTotalDueSpan = document.getElementById('modalTotalDue');
+    const cashPaymentSection = document.getElementById('cash-payment-section');
+    const amountTenderedInput = document.getElementById('amountTendered');
+    const changeDueSpan = document.getElementById('changeDue');
+    const confirmSaleBtn = document.getElementById('confirmSaleBtn');
+    const paymentMethodBtns = document.querySelectorAll('.payment-method-btn');
+
+    let allProducts = [];
+    let cart = {}; // --- নতুন: কার্টকে একটি অবজেক্ট হিসেবে ম্যানেজ করা হবে
+    let currentTotalAmount = 0;
+    let selectedPaymentMethod = '';
+
+    function resetPaymentModal() {
+        selectedPaymentMethod = '';
+        confirmSaleBtn.disabled = true;
+        paymentMethodBtns.forEach(btn => btn.classList.remove('active', 'btn-success'));
+        cashPaymentSection.style.display = 'none';
+        amountTenderedInput.value = '';
+        changeDueSpan.textContent = `0.00 ${currencySymbol}`;
+    }
+
+    async function fetchProducts() {
+        try {
+            const response = await fetch("{% url 'pos:pos_view' %}", { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+            if (!response.ok) throw new Error('Network error');
+            const data = await response.json();
+            allProducts = data.products;
+            displayProducts(allProducts);
+        } catch (error) {
+            productListDiv.innerHTML = `<p class="text-danger text-center mt-3">Failed to load products. Please refresh.</p>`;
+        }
+    }
+
+    function displayProducts(productsToDisplay) {
+        productListDiv.innerHTML = '';
+        if (!productsToDisplay || productsToDisplay.length === 0) {
+            productListDiv.innerHTML = '<p class="text-muted text-center mt-3">No products found for your warehouse.</p>';
+            return;
+        }
+        productsToDisplay.forEach(product => {
+            const productCard = document.createElement('div');
+            productCard.className = 'd-flex align-items-center p-2 border-bottom product-item';
+            productCard.dataset.productId = product.id;
+            productCard.innerHTML = `
+                <img src="${product.image_url || placeholderUrl}" class="rounded product-image me-3" alt="${product.name}">
+                <div class="flex-grow-1">
+                    <h6 class="mb-0 text-truncate" title="${product.name}">${product.name}</h6>
+                    <small class="text-muted">Stock: ${product.current_stock}</small>
+                </div>
+                <span class="fw-bold">${parseFloat(product.sale_price).toFixed(2)}</span>
+            `;
+            productCard.addEventListener('click', () => addToCart(product.id));
+            productListDiv.appendChild(productCard);
+        });
+    }
+
+    // --- নতুন এবং উন্নত addToCart ফাংশন ---
+    async function addToCart(productId, quantity = 1) {
+        const product = allProducts.find(p => p.id === productId);
+        if (!product) {
+            alert('Product not found.');
+            return;
+        }
+
+        const currentCartQty = cart[productId] ? cart[productId].quantity : 0;
+        const availableStock = product.current_stock;
+
+        if (currentCartQty + quantity > availableStock) {
+            alert(`Cannot add more. Only ${availableStock} units of ${product.name} are in stock.`);
+            return;
+        }
+        
+        // Backend-এ কার্ট আপডেট করার জন্য AJAX কল
+        const formData = new FormData();
+        formData.append('product_id', productId);
+        formData.append('quantity', quantity);
+        try {
+            const response = await fetch("{% url 'pos:pos_add_to_cart' %}", {
+                method: 'POST',
+                headers: { 'X-CSRFToken': csrfToken },
+                body: formData
+            });
+            const data = await response.json();
+            if (response.ok) {
+                updateCartDisplay(); // সফল হলে কার্ট রিফ্রেশ করুন
+            } else {
+                alert(data.message || "Failed to add item.");
+            }
+        } catch (error) { console.error(error); }
+    }
+    
+    async function removeFromCart(productId) {
+        const formData = new FormData();
+        formData.append('product_id', productId);
+        try {
+            const response = await fetch("{% url 'pos:pos_remove_from_cart' %}", {
+                method: 'POST',
+                headers: { 'X-CSRFToken': csrfToken },
+                body: formData
+            });
+            if (response.ok) {
+                updateCartDisplay();
+            }
+        } catch (error) { console.error(error); }
+    }
+
+    async function updateCartDisplay() {
+        try {
+            const response = await fetch("{% url 'pos:pos_get_cart' %}");
+            const data = await response.json();
+            const cartItems = data.cart_items;
+            
+            // --- নতুন: ফ্রন্ট-এন্ড কার্ট অবজেক্ট আপডেট করা ---
+            cart = {};
+            cartItems.forEach(item => {
+                cart[item.id] = item;
+            });
+            
+            currentTotalAmount = parseFloat(data.total_amount);
+            cartItemsDiv.innerHTML = '';
+            if (cartItems.length === 0) {
+                cartItemsDiv.innerHTML = '<p class="text-muted text-center mt-3">Cart is empty.</p>';
+                checkoutBtn.disabled = true;
+            } else {
+                cartItems.forEach(item => {
+                    const itemDiv = document.createElement('div');
+                    itemDiv.className = 'd-flex justify-content-between align-items-center mb-2 pb-2 border-bottom';
+                    itemDiv.innerHTML = `
+                        <div>
+                            <h6 class="mb-0">${item.name} <span class="text-muted small">x${item.quantity}</span></h6>
+                            <small class="text-muted">${parseFloat(item.sale_price).toFixed(2)} each</small>
+                        </div>
+                        <div class="d-flex align-items-center">
+                            <span class="fw-bold me-3">${parseFloat(item.item_total).toFixed(2)}</span>
+                            <button class="btn btn-sm btn-outline-danger remove-btn" data-product-id="${item.id}">&minus;</button>
+                        </div>
+                    `;
+                    itemDiv.querySelector('.remove-btn').addEventListener('click', (e) => removeFromCart(e.currentTarget.dataset.productId));
+                    cartItemsDiv.appendChild(itemDiv);
+                });
+                checkoutBtn.disabled = false;
+            }
+            totalAmountSpan.textContent = `${currentTotalAmount.toFixed(2)} ${currencySymbol}`;
+        } catch (error) { console.error(error); }
+    }
+    
+    searchInput.addEventListener('keyup', () => {
+        const searchTerm = searchInput.value.toLowerCase();
+        if (allProducts.length > 0) {
+            const filtered = allProducts.filter(p =>
+                p.name.toLowerCase().includes(searchTerm) || (p.code && p.code.toLowerCase().includes(searchTerm))
+            );
+            displayProducts(filtered);
+        }
+    });
+
+    checkoutBtn.addEventListener('click', () => {
+        resetPaymentModal();
+        modalTotalDueSpan.textContent = `${currentTotalAmount.toFixed(2)} ${currencySymbol}`;
+        paymentModal.show();
+    });
+
+    paymentMethodBtns.forEach(button => {
+        button.addEventListener('click', function() {
+            selectedPaymentMethod = this.dataset.method;
+            paymentMethodBtns.forEach(btn => btn.classList.remove('active', 'btn-success'));
+            this.classList.add('active', 'btn-success');
+            if (selectedPaymentMethod === 'cash') {
+                cashPaymentSection.style.display = 'block';
+                amountTenderedInput.focus();
+                checkCashPaymentValidity();
+            } else {
+                cashPaymentSection.style.display = 'none';
+                confirmSaleBtn.disabled = false; 
+            }
+        });
+    });
+
+    amountTenderedInput.addEventListener('input', checkCashPaymentValidity);
+
+    function checkCashPaymentValidity() {
+        const amountTendered = parseFloat(amountTenderedInput.value) || 0;
+        const change = amountTendered - currentTotalAmount;
+        changeDueSpan.textContent = `${change.toFixed(2)} ${currencySymbol}`;
+        confirmSaleBtn.disabled = amountTendered < currentTotalAmount;
+    }
+
+    confirmSaleBtn.addEventListener('click', async () => {
+        const cartResponse = await fetch("{% url 'pos:pos_get_cart' %}");
+        const cartData = await cartResponse.json();
+        let paymentData = {
+            cart: cartData.cart_items,
+            payment_method: selectedPaymentMethod,
+            amount_tendered: selectedPaymentMethod === 'card' ? currentTotalAmount : parseFloat(amountTenderedInput.value),
+            change_due: selectedPaymentMethod === 'card' ? 0 : (parseFloat(amountTenderedInput.value) - currentTotalAmount)
+        };
+        try {
+            const response = await fetch("{% url 'pos:pos_checkout_view' %}", {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
+                body: JSON.stringify(paymentData)
+            });
+            const data = await response.json();
+            paymentModal.hide();
+            if (response.ok) {
+                alert(data.message);
+                if (data.receipt_url) window.open(data.receipt_url, '_blank');
+                updateCartDisplay();
+                fetchProducts();
+            } else {
+                alert(`Error: ${data.message}`);
+            }
+        } catch (error) { console.error(error); }
+    });
+    
+    function startScanner() {
+        Quagga.init({
+            inputStream: {
+                name: "Live", type: "LiveStream", target: document.querySelector('#scanner-viewport'),
+                constraints: { facingMode: "environment" },
+            },
+            decoder: { readers: ["code_128_reader", "ean_reader", "upc_reader"] }
+        }, function(err) {
+            if (err) {
+                console.error(err);
+                alert('Error: Could not access the camera. Please ensure you are using HTTPS and have granted camera permissions.');
+                scannerModal.hide();
+                return;
+            }
+            Quagga.start();
+        });
+        Quagga.onDetected(onDetected);
+    }
+    
+    async function onDetected(result) {
+        if (Quagga.isProcessing) return;
+        Quagga.isProcessing = true;
+        const code = result.codeResult.code;
+        const product = allProducts.find(p => p.code === code);
+        const viewport = document.querySelector('#scanner-viewport');
+        if (product) {
+            await addToCart(product.id);
+            viewport.style.boxShadow = 'inset 0 0 20px 10px rgba(0, 255, 0, 0.5)';
+            setTimeout(() => {
+                viewport.style.boxShadow = '';
+                Quagga.isProcessing = false;
+            }, 500);
+        } else {
+            viewport.style.boxShadow = 'inset 0 0 20px 10px rgba(255, 0, 0, 0.5)';
+            setTimeout(() => {
+                viewport.style.boxShadow = '';
+                Quagga.isProcessing = false;
+            }, 1000);
+        }
+    }
+    
+    scannerModalEl.addEventListener('shown.bs.modal', startScanner);
+    scannerModalEl.addEventListener('hidden.bs.modal', () => {
+        if (typeof Quagga !== 'undefined') {
+            Quagga.offDetected(onDetected);
+            Quagga.stop();
+        }
+    });
+
+    // Initial Load
+    fetchProducts();
+    updateCartDisplay();
+});
+</script>
+{% endblock %}
