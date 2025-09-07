@@ -1,0 +1,133 @@
+{% extends 'base.html' %}
+{% load crispy_forms_tags %}
+
+{% block title %}
+    Stock Movement Report
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+
+    <h1 class="h3 mb-4 text-gray-800">Stock Movement Report</h1>
+
+    <div class="card shadow mb-4">
+        <div class="card-header py-3">
+            <h6 class="m-0 font-weight-bold text-primary"><i class="fas fa-filter me-1"></i> Filter by Date Range</h6>
+        </div>
+        <div class="card-body">
+            <form method="get" action="">
+                <div class="row align-items-end">
+                    <div class="col-md-5">
+                        {{ form.start_date|as_crispy_field }}
+                    </div>
+                    <div class="col-md-5">
+                        {{ form.end_date|as_crispy_field }}
+                    </div>
+                    <div class="col-md-2 d-grid">
+                        <button type="submit" class="btn btn-primary">Filter</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="card shadow mb-4">
+        <div class="card-header py-3">
+            <h6 class="m-0 font-weight-bold text-primary">Transaction Details</h6>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-bordered table-hover" width="100%" cellspacing="0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Date</th>
+                            <th>Product</th>
+                            <th>Type</th>
+                            <th class="text-end">Quantity</th>
+                            <th>From Location</th>
+                            <th>To Location</th>
+                            <th>Reference (Customer/Supplier)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for t in transactions %}
+                        <tr>
+                            <td>{{ t.transaction_date|date:"d M Y, H:i" }}</td>
+                            <td>{{ t.product.name }}</td>
+                            <td>
+                                <span class="badge 
+                                    {% if t.transaction_type == 'receipt' or t.transaction_type == 'purchase' %}bg-success
+                                    {% elif t.transaction_type == 'sale' %}bg-danger
+                                    {% elif t.transaction_type == 'transfer' %}bg-info
+                                    {% elif t.transaction_type == 'adjustment' %}bg-warning text-dark
+                                    {% else %}bg-secondary{% endif %}">
+                                    {{ t.get_transaction_type_display }}
+                                </span>
+                            </td>
+                            <td class="text-end fw-bold">
+                                {% if t.transaction_type == 'sale' or t.transaction_type == 'transfer_out' %}
+                                    <span class="text-danger">{{ t.quantity }}</span>
+                                {% else %}
+                                    <span class="text-success">+{{ t.quantity }}</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ t.source_location|default:"--" }}</td>
+                            <td>{{ t.destination_location|default:"--" }}</td>
+                            <td>
+                                {% if t.customer %}{{ t.customer.name }} (Customer)
+                                {% elif t.supplier %}{{ t.supplier.name }} (Supplier)
+                                {% else %}System{% endif %}
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="7" class="text-center">No transactions found for the selected period.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                {# --- পেজিনেশন বাটন শুরু --- #}
+                {% if transactions.has_other_pages %}
+                <nav aria-label="Page navigation" class="mt-4">
+                    <ul class="pagination justify-content-center">
+
+                        {# ಹಿಂದಿನ পৃষ্ঠা বা Previous বাটন #}
+                        {% if transactions.has_previous %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ transactions.previous_page_number }}&amp;{{ request.GET.urlencode | cut:'page=' }}" aria-label="Previous">
+                                    <span aria-hidden="true">&laquo;</span>
+                                </a>
+                            </li>
+                        {% else %}
+                            <li class="page-item disabled"><span class="page-link">&laquo;</span></li>
+                        {% endif %}
+
+                        {# পৃষ্ঠার নম্বরগুলো #}
+                        {% for i in transactions.paginator.page_range %}
+                            {% if transactions.number == i %}
+                                <li class="page-item active" aria-current="page"><span class="page-link">{{ i }}</span></li>
+                            {% else %}
+                                <li class="page-item"><a class="page-link" href="?page={{ i }}&amp;{{ request.GET.urlencode | cut:'page=' }}">{{ i }}</a></li>
+                            {% endif %}
+                        {% endfor %}
+
+                        {# পরের পৃষ্ঠা বা Next বাটন #}
+                        {% if transactions.has_next %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ transactions.next_page_number }}&amp;{{ request.GET.urlencode | cut:'page=' }}" aria-label="Next">
+                                    <span aria-hidden="true">&raquo;</span>
+                                </a>
+                            </li>
+                        {% else %}
+                            <li class="page-item disabled"><span class="page-link">&raquo;</span></li>
+                        {% endif %}
+                    </ul>
+                </nav>
+                {% endif %}
+                {# --- পেজিনেশন বাটন শেষ --- #}
+  
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

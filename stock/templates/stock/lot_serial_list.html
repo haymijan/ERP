@@ -1,0 +1,52 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-sm-flex align-items-center justify-content-between mb-4">
+        <h1 class="h3 mb-0 text-gray-800">{{ title }}</h1>
+        <a href="{% url 'stock:add_lot_serial' %}" class="btn btn-primary btn-sm shadow-sm">
+            <i class="fas fa-plus fa-sm text-white-50 me-1"></i> Add New Lot/Serial
+        </a>
+    </div>
+
+    <div class="card shadow mb-4">
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-bordered" width="100%" cellspacing="0">
+                    <thead class="table-dark">
+                        <tr>
+                            <th>Product</th>
+                            <th>Location</th>
+                            <th>Lot/Serial Number</th>
+                            <th>Quantity</th>
+                            <th>Expiration Date</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for lot in lots %}
+                        <tr>
+                            <td>{{ lot.product.name }}</td>
+                            <td>{{ lot.location }}</td>
+                            <td>{{ lot.lot_number }}</td>
+                            <td>{{ lot.quantity }}</td>
+                            <td>{{ lot.expiration_date|date:"Y-m-d"|default:"N/A" }}</td>
+                            <td>
+                                <a href="{% url 'stock:edit_lot_serial' lot.pk %}" class="btn btn-warning btn-sm">Edit</a>
+                                <a href="{% url 'stock:delete_lot_serial' lot.pk %}" class="btn btn-danger btn-sm">Delete</a>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="6" class="text-center">No Lot or Serial Numbers found.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

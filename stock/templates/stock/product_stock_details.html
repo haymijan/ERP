@@ -1,0 +1,96 @@
+{% extends 'base.html' %}
+{% load humanize %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <h1 class="h3 mb-4 text-gray-800">{{ title }}</h1>
+
+    <div class="card shadow mb-4">
+        <div class="card-header py-3">
+            <h6 class="m-0 font-weight-bold text-primary">Stock Summary Across All Branches</h6>
+        </div>
+        <div class="card-body">
+            {% if stock_by_warehouse %}
+                <div class="table-responsive">
+                    <table class="table table-bordered">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Branch Name</th>
+                                <th class="text-end">Total Available Stock</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for stock in stock_by_warehouse %}
+                            <tr>
+                                <td>{{ stock.warehouse__name }}</td>
+                                <td class="text-end">{{ stock.total_stock|floatformat:0|intcomma }} {{ product.unit_of_measure.short_code }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% else %}
+                <p class="text-center text-muted">This product is not available in any branch.</p>
+            {% endif %}
+        </div>
+    </div>
+
+    {% if user.is_superuser or 'Branch Manager' in user.groups.all|join:', ' %}
+    <div class="card shadow mb-4">
+        <div class="card-header py-3">
+            {% if user.is_superuser %}
+                <h6 class="m-0 font-weight-bold text-primary">Lot Details (All Branches)</h6>
+            {% elif user_warehouse %}
+                <h6 class="m-0 font-weight-bold text-primary">Lot Details in Your Branch ({{ user_warehouse.name }})</h6>
+            {% endif %}
+        </div>
+        <div class="card-body">
+            {% if lot_details %}
+                <div class="table-responsive">
+                    <table class="table table-bordered">
+                        <thead class="table-light">
+                            <tr>
+                                {% if user.is_superuser %}<th>Branch</th>{% endif %}
+                                <th>Lot/Serial Number</th>
+                                <th>Location</th>
+                                <th>Received Date</th>
+                                <th>Expiration Date</th>
+                                <th class="text-end">Current Quantity</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for lot in lot_details %}
+                            <tr>
+                                {% if user.is_superuser %}<td>{{ lot.location.warehouse.name }}</td>{% endif %}
+                                <td>{{ lot.lot_number }}</td>
+                                <td>{{ lot.location.name }}</td>
+                                <td>{{ lot.created_at|date:"d M, Y" }}</td>
+                                <td>
+                                    {% if lot.expiration_date %}
+                                        {{ lot.expiration_date|date:"d M, Y" }}
+                                    {% else %}
+                                        N/A
+                                    {% endif %}
+                                </td>
+                                <td class="text-end">{{ lot.quantity|floatformat:0|intcomma }} {{ product.unit_of_measure.short_code }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% else %}
+                {# যদি ব্রাঞ্চ ম্যানেজারের ব্রাঞ্চে কোনো লট না পাওয়া যায় #}
+                <p class="text-center text-muted">No stock found for this product in your assigned branch.</p>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+    
+    <a href="{% url 'products:product_list' %}" class="btn btn-secondary">
+        <i class="fas fa-arrow-left me-1"></i> Back to Product List
+    </a>
+
+</div>
+{% endblock %}

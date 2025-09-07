@@ -1,0 +1,121 @@
+{% extends 'base.html' %}
+{% load crispy_forms_tags %}
+
+{% block title %}
+    {{ title }}
+{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-md-9 col-lg-7">
+            <div class="card shadow border-0">
+                <div class="card-header bg-primary bg-gradient text-white text-center py-3">
+                    <h2 class="mb-0"><i class="fas fa-edit me-2"></i>{{ title }}</h2>
+                </div>
+                <div class="card-body p-4 p-md-5">
+                    <form method="post">
+                        {% csrf_token %}
+
+                        {{ form.non_field_errors }}
+
+                        <div class="mb-3">
+                            {{ form.product|as_crispy_field }}
+                        </div>
+                        <div class="mb-3">
+                            {{ form.transaction_type|as_crispy_field }}
+                        </div>
+                        <div class="mb-3">
+                            {{ form.quantity|as_crispy_field }}
+                        </div>
+
+                        <div id="lot-serial-select-group" style="display:none;" class="border p-3 rounded mb-3 bg-light">
+                            {{ form.lot_serial|as_crispy_field }}
+                        </div>
+
+                        <div id="lot-serial-create-group" style="display:none;" class="border p-3 rounded mb-3 bg-light">
+                             {{ form.new_lot_number|as_crispy_field }}
+                             {{ form.new_lot_expiration_date|as_crispy_field }}
+                        </div>
+                        <div class="mb-3">
+                            {{ form.supplier|as_crispy_field }}
+                        </div>
+                        <div class="mb-3">
+                            {{ form.customer|as_crispy_field }}
+                        </div>
+                        <div class="mb-3">
+                           {{ form.source_location|as_crispy_field }}
+                        </div>
+                        <div class="mb-3">
+                            {{ form.destination_location|as_crispy_field }}
+                        </div>
+                        <div class="mb-3">
+                            {{ form.notes|as_crispy_field }}
+                        </div>
+
+                        <div class="d-grid gap-2 mt-4">
+                            <button type="submit" class="btn btn-primary btn-lg">Record Transaction</button>
+                            <a href="{% url 'stock:transaction_list' %}" class="btn btn-outline-secondary">Cancel</a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+{# --- AJAX URL-টি ঠিক করা হয়েছে --- #}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const productSelect = document.getElementById('id_product');
+    const transactionTypeSelect = document.getElementById('id_transaction_type');
+    
+    const lotSerialSelectGroup = document.getElementById('lot-serial-select-group');
+    const lotSerialCreateGroup = document.getElementById('lot-serial-create-group');
+    const lotSerialSelect = document.getElementById('id_lot_serial');
+
+    function updateLotSerialFields() {
+        const productId = productSelect.value;
+        const transactionType = transactionTypeSelect.value;
+
+        lotSerialSelectGroup.style.display = 'none';
+        lotSerialCreateGroup.style.display = 'none';
+
+        if (!productId) {
+            return;
+        }
+
+        // --- URL টি এখনো তৈরি করা হয়নি, আমরা পরবর্তী ধাপে এটি তৈরি করব ---
+        const url = `/stock/ajax/check-product-tracking/${productId}/`;
+
+        fetch(url)
+            .then(response => response.json())
+            .then(data => {
+                if (data.tracking_method === 'lot' || data.tracking_method === 'serial') {
+                    if (transactionType === 'receipt') {
+                        lotSerialCreateGroup.style.display = 'block';
+                    } else if (transactionType === 'sale' || transactionType === 'transfer') {
+                        lotSerialSelectGroup.style.display = 'block';
+                        
+                        lotSerialSelect.innerHTML = '<option value="">---------</option>';
+                        data.lots.forEach(lot => {
+                            let option = document.createElement('option');
+                            option.value = lot.id;
+                            option.textContent = `${lot.lot_number} (Available: ${lot.quantity})`;
+                            lotSerialSelect.appendChild(option);
+                        });
+                    }
+                }
+            })
+            .catch(error => console.error('Error:', error));
+    }
+
+    productSelect.addEventListener('change', updateLotSerialFields);
+    transactionTypeSelect.addEventListener('change', updateLotSerialFields);
+
+    updateLotSerialFields();
+});
+</script>
+{% endblock %}
