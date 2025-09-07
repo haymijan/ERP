@@ -1,0 +1,65 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}
+  Units of Measure
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+
+    <div class="card shadow mb-4">
+        <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
+            <h6 class="m-0 font-weight-bold text-primary">All Units of Measure</h6>
+            <a href="{% url 'products:add_unit_of_measure' %}" class="btn btn-primary btn-sm">
+                <i class="fas fa-plus fa-sm me-1"></i> Add New Unit
+            </a>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-bordered table-hover" id="dataTable" width="100%" cellspacing="0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Unit Name</th>
+                            <th>Short Code</th>
+                            <th>Category</th>
+                            <th>Ratio to Base</th>
+                            <th class="text-center">Is Base Unit?</th>
+                            <th class="text-center">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for uom in units_of_measure %}
+                        <tr>
+                            <td>{{ uom.name }}</td>
+                            <td>{{ uom.short_code|default:"N/A" }}</td>
+                            <td>{{ uom.category.name }}</td>
+                            <td>{{ uom.ratio }}</td>
+                            <td class="text-center">
+                                {% if uom.is_base_unit %}
+                                    <i class="fas fa-check-circle text-success" title="Yes"></i>
+                                {% else %}
+                                    <i class="fas fa-times-circle text-muted" title="No"></i>
+                                {% endif %}
+                            </td>
+                            <td class="text-center">
+                                <a href="{% url 'products:edit_unit_of_measure' uom.pk %}" class="btn btn-warning btn-sm me-1" title="Edit">
+                                    <i class="fas fa-edit"></i>
+                                </a>
+                                <a href="{% url 'products:delete_unit_of_measure' uom.pk %}" class="btn btn-danger btn-sm" title="Delete">
+                                    <i class="fas fa-trash"></i>
+                                </a>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="6" class="text-center">No units of measure found.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,81 @@
+{% extends 'base.html' %}
+{% load crispy_forms_tags %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <form method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+
+        <div class="d-sm-flex align-items-center justify-content-between mb-4">
+            <h1 class="h3 mb-0 text-gray-800">{{ title }}</h1>
+            <div>
+                <a href="{% url 'products:product_list' %}" class="btn btn-secondary btn-sm">
+                    <i class="fas fa-times me-1"></i> Cancel
+                </a>
+                <button type="submit" class="btn btn-primary btn-sm">
+                    <i class="fas fa-save me-1"></i> Save Changes
+                </button>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-lg-8">
+                <div class="card shadow mb-4">
+                    <div class="card-header py-3">
+                        <h6 class="m-0 font-weight-bold text-primary">General Information</h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-8 mb-3">{{ form.name|as_crispy_field }}</div>
+                            <div class="col-md-4 mb-3">{{ form.product_code|as_crispy_field }}</div>
+                        </div>
+                        <div class="row">
+                            {# --- Brand ফিল্ডটি এখানে যোগ করা হয়েছে --- #}
+                            <div class="col-md-6 mb-3">{{ form.brand|as_crispy_field }}</div>
+                            <div class="col-md-6 mb-3">{{ form.category|as_crispy_field }}</div>
+                        </div>
+                        <div class="mb-3">{{ form.description|as_crispy_field }}</div>
+                    </div>
+                </div>
+
+                <div class="card shadow mb-4">
+                    <div class="card-header py-3">
+                        <h6 class="m-0 font-weight-bold text-primary">Units of Measure</h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-4 mb-3">{{ form.unit_of_measure|as_crispy_field }}</div>
+                            <div class="col-md-4 mb-3">{{ form.purchase_unit_of_measure|as_crispy_field }}</div>
+                            <div class="col-md-4 mb-3">{{ form.sale_unit_of_measure|as_crispy_field }}</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-lg-4">
+                <div class="card shadow mb-4">
+                    <div class="card-header py-3">
+                        <h6 class="m-0 font-weight-bold text-primary">Pricing & Stock</h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">{{ form.price|as_crispy_field }}</div>
+                        <div class="mb-3">{{ form.cost_price|as_crispy_field }}</div> <div class="mb-3">{{ form.sale_price|as_crispy_field }}</div>
+                        <div class="mb-3">{{ form.min_stock_level|as_crispy_field }}</div>
+                        <div class="mb-3">{{ form.tracking_method|as_crispy_field }}</div>
+                    </div>
+                </div>
+                <div class="card shadow mb-4">
+                    <div class="card-header py-3">
+                        <h6 class="m-0 font-weight-bold text-primary">Product Image</h6>
+                    </div>
+                    <div class="card-body">
+                        {{ form.image|as_crispy_field }}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </form>
+</div>
+{% endblock %}

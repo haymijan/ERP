@@ -1,0 +1,223 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load humanize %}
+
+{% block title %}Product List{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+
+    <div class="card shadow mb-4">
+        <div class="card-header py-3">
+            <h6 class="m-0 font-weight-bold text-primary"><i class="fas fa-filter me-1"></i> Filters</h6>
+        </div>
+        <div class="card-body">
+            <form method="get" action="">
+                <div class="row g-3 align-items-end">
+                    <div class="col-md-3">
+                        <label class="form-label">Search</label>
+                        <input type="text" name="q" class="form-control" value="{{ request.GET.q|default:'' }}" placeholder="Name or Code...">
+                    </div>
+                    
+                    <div class="col-md-2">
+                        <label class="form-label">Warehouse</label>
+                        <select name="warehouse" class="form-select">
+                            <option value="">All Warehouses</option>
+                            {% for w in all_warehouses %}
+                                <option value="{{ w.id }}" {% if request.GET.warehouse == w.id|stringformat:"s" %}selected{% endif %}>{{ w.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="col-md-2">
+                        <label class="form-label">Brand</label>
+                        <select name="brand" class="form-select">
+                            <option value="">All Brands</option>
+                            {% for b in all_brands %}
+                                <option value="{{ b.id }}" {% if request.GET.brand == b.id|stringformat:"s" %}selected{% endif %}>{{ b.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">Category</label>
+                        <select name="category" class="form-select">
+                            <option value="">All Categories</option>
+                            {% for c in all_categories %}
+                                <option value="{{ c.id }}" {% if request.GET.category == c.id|stringformat:"s" %}selected{% endif %}>{{ c.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">Status</label>
+                        <select name="status" class="form-select">
+                            <option value="">All Statuses</option>
+                            {% for value, display in product_statuses %}
+                                <option value="{{ value }}" {% if request.GET.status == value %}selected{% endif %}>{{ display }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-1 d-grid">
+                        <button type="submit" class="btn btn-primary">Apply</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <form method="post" action="{% url 'products:product_bulk_action' %}" id="bulk-action-form">
+        {% csrf_token %}
+        <div class="card shadow mb-4">
+            <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
+                <h6 class="m-0 font-weight-bold text-primary">Product Details</h6>
+                <div class="d-flex align-items-center flex-wrap gap-2">
+                    
+                    <select name="action" class="form-select form-select-sm" style="width: auto;" required>
+                        <option value="">Bulk Actions...</option>
+                        <option value="activate">Activate Selected</option>
+                        <option value="deactivate">Deactivate Selected</option>
+                    </select>
+                    <button type="submit" class="btn btn-dark btn-sm">Apply</button>
+                    
+                    <button type="button" class="btn btn-info btn-sm" id="print-labels-btn">
+                        <i class="fas fa-print fa-sm me-1"></i> Print Labels
+                    </button>
+
+                    <a href="{% url 'products:export_products_excel' %}?{{ request.GET.urlencode }}" class="btn btn-success btn-sm">
+                        <i class="fas fa-file-excel fa-sm me-1"></i> Export Excel
+                    </a>
+                    <a href="{% url 'products:export_products_pdf' %}?{{ request.GET.urlencode }}" class="btn btn-danger btn-sm" target="_blank">
+                        <i class="fas fa-file-pdf fa-sm me-1"></i> Export PDF
+                    </a>
+                    <a href="{% url 'products:add_product' %}" class="btn btn-primary btn-sm">
+                        <i class="fas fa-plus fa-sm me-1"></i> Add Product
+                    </a>
+                </div>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-hover" width="100%" cellspacing="0">
+                        <thead class="table-light">
+                            <tr class="align-middle">
+                                <th class="text-center" style="width: 3%;"><input type="checkbox" id="select-all-products"></th>
+                                <th style="width: 120px;">Print Qty</th>
+                                <th>Image</th>
+                                <th>Product Name & Barcode</th>
+                                <th>Brand</th>
+                                <th>Category</th>
+                                <th class="text-end">Sale Price</th>
+                                <th class="text-end">Quantity</th>
+                                <th>Status</th>
+                                <th class="text-center">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for product in products %}
+                            <tr class="align-middle {% if not product.is_active %}table-secondary text-muted{% endif %}">
+                                <td class="text-center"><input type="checkbox" name="product_ids" value="{{ product.id }}" class="product-checkbox"></td>
+                                <td><input type="number" name="quantity_{{ product.id }}" class="form-control form-control-sm" value="1" min="1"></td>
+                                <td class="text-center">
+                                    {% if product.image %}
+                                        <img src="{{ product.image.url }}" alt="{{ product.name }}" style="width: 50px; height: 50px; object-fit: cover; border-radius: 4px;">
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <div>{{ product.name }}</div>
+                                    <small class="text-muted">{{ product.product_code|default:"N/A" }}</small>
+                                    {% if product.barcode %}<div class="mt-1"><img src="{{ product.barcode.url }}" alt="Barcode" style="height: 30px; max-width: 120px;"></div>{% endif %}
+                                </td>
+                                <td>{{ product.brand.name|default:"N/A" }}</td>
+                                <td>{{ product.category.name|default:"N/A" }}</td>
+                                <td class="text-end fw-bold">{{ product.sale_price|floatformat:2|intcomma }}</td>
+                                <td class="text-end">
+                                    {{ product.calculated_total_quantity }}
+                                    <a href="{% url 'stock:product_stock_details' product.id %}" class="btn btn-outline-primary btn-sm ms-1" title="View Stock Details">
+                                        <i class="fas fa-search-location"></i>
+                                    </a>
+                                </td>
+                                <td>
+                                    {# --- পরিবর্তিত অংশ শুরু --- #}
+                                    {% if not product.is_active %}
+                                        <span class="badge bg-secondary">Inactive</span>
+                                    {% else %}
+                                        {% if product.calculated_total_quantity > product.min_stock_level %}
+                                            <span class="badge bg-success">In Stock</span>
+                                        {% elif product.calculated_total_quantity > 0 %}
+                                            <span class="badge bg-warning text-dark">Low Stock</span>
+                                        {% else %}
+                                            <span class="badge bg-danger">Out of Stock</span>
+                                        {% endif %}
+                                    {% endif %}
+                                    {# --- পরিবর্তিত অংশ শেষ --- #}
+                                </td>
+                                <td class="text-center">
+                                    <a href="{% url 'products:edit_product' product.pk %}" class="btn btn-warning btn-sm me-1" title="Edit"><i class="fas fa-edit"></i></a>
+                                    <a href="{% url 'products:delete_product' product.pk %}" class="btn btn-danger btn-sm" title="Delete"><i class="fas fa-trash"></i></a>
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr><td colspan="10" class="text-center py-5">No products found.</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+
+                {% if products.has_other_pages %}
+                <nav aria-label="Page navigation"><ul class="pagination justify-content-center mt-4">
+                    {% if products.has_previous %}<li class="page-item"><a class="page-link" href="?page=1&{{ request.GET.urlencode | cut:'page=' }}">First</a></li><li class="page-item"><a class="page-link" href="?page={{ products.previous_page_number }}&{{ request.GET.urlencode | cut:'page=' }}">Previous</a></li>{% endif %}
+                    {% for i in products.paginator.page_range %}{% if products.number == i %}<li class="page-item active"><span class="page-link">{{ i }}</span></li>{% else %}<li class="page-item"><a class="page-link" href="?page={{ i }}&{{ request.GET.urlencode | cut:'page=' }}">{{ i }}</a></li>{% endif %}{% endfor %}
+                    {% if products.has_next %}<li class="page-item"><a class="page-link" href="?page={{ products.next_page_number }}&{{ request.GET.urlencode | cut:'page=' }}">Next</a></li><li class="page-item"><a class="page-link" href="?page={{ products.paginator.num_pages }}&{{ request.GET.urlencode | cut:'page=' }}">Last</a></li>{% endif %}
+                </ul></nav>
+                {% endif %}
+            </div>
+        </div>
+    </form>
+
+    <form id="print-labels-form" method="post" action="{% url 'products:print_product_labels' %}" target="_blank" class="d-none">
+        {% csrf_token %}
+    </form>
+</div>
+{% endblock %}
+
+
+{% block extra_js %}
+<script>
+    document.getElementById('select-all-products').addEventListener('change', function(e) {
+        document.querySelectorAll('.product-checkbox').forEach(function(checkbox) {
+            checkbox.checked = e.target.checked;
+        });
+    });
+
+    document.getElementById('print-labels-btn').addEventListener('click', function() {
+        const mainForm = document.getElementById('bulk-action-form');
+        const printForm = document.getElementById('print-labels-form');
+        printForm.innerHTML = ''; 
+        
+        const csrfInput = mainForm.querySelector('input[name="csrfmiddlewaretoken"]').cloneNode(true);
+        printForm.appendChild(csrfInput);
+
+        const checkedCheckboxes = mainForm.querySelectorAll('.product-checkbox:checked');
+        
+        if (checkedCheckboxes.length === 0) {
+            alert('Please select at least one product to print labels.');
+            return;
+        }
+
+        checkedCheckboxes.forEach(function(checkbox) {
+            const hiddenInput = document.createElement('input');
+            hiddenInput.type = 'hidden';
+            hiddenInput.name = 'product_ids';
+            hiddenInput.value = checkbox.value;
+            printForm.appendChild(hiddenInput);
+
+            const qtyInputName = `quantity_${checkbox.value}`;
+            const qtyInput = mainForm.querySelector(`input[name="${qtyInputName}"]`);
+            if(qtyInput) {
+                const hiddenQtyInput = qtyInput.cloneNode(true);
+                printForm.appendChild(hiddenQtyInput);
+            }
+        });
+
+        printForm.submit();
+    });
+</script>
+{% endblock %}
