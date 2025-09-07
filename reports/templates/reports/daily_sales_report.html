@@ -1,0 +1,163 @@
+{% extends 'base.html' %}
+{% load humanize %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <h1 class="h3 mb-4 text-gray-800">{{ title }}</h1>
+    <div class="card shadow mb-4">
+        <div class="card-header py-3">
+            <h6 class="m-0 font-weight-bold text-primary">Filters</h6>
+        </div>
+        <div class="card-body">
+            <form method="get">
+                <div class="row">
+                    <div class="col-md-3 mb-3">
+                        <label for="start_date">Start Date</label>
+                        <input type="date" id="start_date" name="start_date" class="form-control" value="{{ form_start_date|date:'Y-m-d'|default:'' }}">
+                    </div>
+                    <div class="col-md-3 mb-3">
+                        <label for="end_date">End Date</label>
+                        <input type="date" id="end_date" name="end_date" class="form-control" value="{{ form_end_date|date:'Y-m-d'|default:'' }}">
+                    </div>
+                    <div class="col-md-2 mb-3">
+                        <label for="user">User</label>
+                        <select id="user" name="user" class="form-select">
+                            <option value="">All Users</option>
+                            {% for user in users %}
+                            <option value="{{ user.id }}" {% if request.GET.user == user.id|stringformat:"s" %}selected{% endif %}>{{ user.username }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-2 mb-3">
+                        <label for="warehouse">Branch/Warehouse</label>
+                        <select id="warehouse" name="warehouse" class="form-select">
+                            <option value="">All Branches</option>
+                            {% for warehouse in warehouses %}
+                            <option value="{{ warehouse.id }}" {% if request.GET.warehouse == warehouse.id|stringformat:"s" %}selected{% endif %}>{{ warehouse.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-2 d-flex align-items-end">
+                        <button type="submit" class="btn btn-primary me-2 w-100">Apply Filter</button>
+                        <a href="{% url 'reports:daily_sales_report' %}" class="btn btn-secondary w-100">Reset</a>
+                    </div>
+                </div>
+                 <div class="row mt-3">
+                    <div class="col-md-12 text-end">
+                        <a href="{% url 'reports:export_daily_sales_excel' %}?{{ request.GET.urlencode }}" class="btn btn-success">Download Excel</a>
+                        <a href="{% url 'reports:export_daily_sales_pdf' %}?{{ request.GET.urlencode }}" class="btn btn-danger" target="_blank">Download PDF</a>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-xl-4 col-md-6 mb-4">
+            <div class="card border-left-primary shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">Total Sales (Gross)</div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ DEFAULT_CURRENCY_SYMBOL }}{{ total_sales|floatformat:2|intcomma }}</div>
+                        </div>
+                        <div class="col-auto"><i class="fas fa-calendar fa-2x text-gray-300"></i></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-4 col-md-6 mb-4">
+            <div class="card border-left-danger shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-danger text-uppercase mb-1">Total Returns</div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ DEFAULT_CURRENCY_SYMBOL }}{{ total_returns|floatformat:2|intcomma }}</div>
+                        </div>
+                        <div class="col-auto"><i class="fas fa-undo fa-2x text-gray-300"></i></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-4 col-md-6 mb-4">
+            <div class="card border-left-success shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-success text-uppercase mb-1">Net Sales</div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ DEFAULT_CURRENCY_SYMBOL }}{{ net_sales|floatformat:2|intcomma }}</div>
+                        </div>
+                        <div class="col-auto"><i class="fas fa-dollar-sign fa-2x text-gray-300"></i></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="card shadow mb-4">
+        <div class="card-header py-3">
+             <h6 class="m-0 font-weight-bold text-primary">Transaction Details</h6>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-bordered table-hover" width="100%" cellspacing="0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>SO #</th>
+                            <th>Date</th>
+                            <th>Type</th>
+                            <th>Customer</th>
+                            <th>User</th>
+                            <th>Branch</th>
+                            <th class="text-end">Amount</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for entry in daily_ledger %}
+                        <tr>
+                            <td><a href="{% url 'sales:sales_order_detail' entry.order_obj.pk %}">SO-{{ entry.order_obj.id }}</a></td>
+                            <td>{{ entry.date|date:"Y-m-d H:i" }}</td>
+                            <td>
+                                {% if entry.type == 'Sale' %}
+                                    <span class="badge bg-success">Sale</span>
+                                {% elif entry.type == 'Return' %}
+                                    <span class="badge bg-danger">Return</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ entry.order_obj.customer.name|default:"N/A" }}</td>
+                            <td>
+                                {% if entry.type == 'Sale' %}
+                                    {{ entry.order_obj.user.username|default:"N/A" }}
+                                {% elif entry.type == 'Return' %}
+                                    {{ entry.return_obj.user.username|default:"N/A" }}
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if entry.type == 'Sale' %}
+                                    {{ entry.order_obj.warehouse.name|default:"N/A" }}
+                                {% elif entry.type == 'Return' %}
+                                    {{ entry.return_obj.warehouse.name|default:"N/A" }}
+                                {% endif %}
+                            </td>
+                            <td class="text-end {% if entry.type == 'Return' %}text-danger{% endif %}">
+                                {{ DEFAULT_CURRENCY_SYMBOL }}{{ entry.amount|floatformat:2 }}
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="7" class="text-center">No transactions found for the selected criteria.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+
+                {% if daily_ledger.has_other_pages %}
+                    {% include 'includes/pagination.html' with page_obj=daily_ledger %}
+                {% endif %}
+
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

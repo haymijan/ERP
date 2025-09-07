@@ -1,0 +1,175 @@
+{% extends 'base.html' %}
+{% load crispy_forms_tags %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-sm-flex align-items-center justify-content-between mb-4">
+        <h1 class="h3 mb-0 text-gray-800">{{ title }}</h1>
+        <a href="{% url 'sales:sales_order_detail' sales_order_form.instance.pk %}" class="btn btn-secondary btn-sm">Back to Order</a>
+    </div>
+
+    <form method="post" id="edit-sales-order-form">
+        {% csrf_token %}
+        
+        <div class="card shadow mb-4">
+            <div class="card-body p-4">
+                <fieldset class="form-group border p-3 mb-4 rounded">
+                    <legend class="fw-bold fs-5 text-primary">Order Details</legend>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">{{ sales_order_form.customer|as_crispy_field }}</div>
+                        <div class="col-md-6 mb-3">{{ sales_order_form.expected_delivery_date|as_crispy_field }}</div>
+                        <div class="col-md-6 mb-3">{{ sales_order_form.status|as_crispy_field }}</div>
+                        <div class="col-md-6 mb-3">{{ sales_order_form.notes|as_crispy_field }}</div>
+                    </div>
+                </fieldset>
+
+                <fieldset class="form-group border p-3 mb-4 rounded">
+                    <legend class="fw-bold fs-5 text-primary">Order Items</legend>
+                    {{ formset.management_form }}
+                    
+                    <div id="formset-container">
+                        {% for form in formset %}
+                            <div class="formset-row row align-items-center mb-3 p-2 border rounded bg-light">
+                                {{ form.id }} {# <-- আইডি ফিল্ডটি যোগ করা হয়েছে #}
+                                <div class="col-md-5">{{ form.product|as_crispy_field }}</div>
+                                <div class="col-md-2">{{ form.quantity|as_crispy_field }}</div>
+                                <div class="col-md-2">{{ form.unit_price|as_crispy_field }}</div>
+                                <div class="col-md-2"><p class="form-control-plaintext text-end fw-bold mb-0 subtotal-display">0.00</p></div>
+                                <div class="col-md-1 text-end">
+                                    {% if formset.can_delete %}
+                                        <div class="d-none">{{ form.DELETE }}</div> {# <-- চেকবক্সটি এখানে লুকিয়ে রাখা হয়েছে #}
+                                        <button type="button" class="btn btn-danger btn-sm remove-form-row" title="Remove Item"><i class="fas fa-trash"></i></button>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </div>
+
+                    <div id="empty-form" class="d-none">
+                        <div class="formset-row row align-items-center mb-3 p-2 border rounded bg-light">
+                             <div class="col-md-5">{{ formset.empty_form.product|as_crispy_field }}</div>
+                            <div class="col-md-2">{{ formset.empty_form.quantity|as_crispy_field }}</div>
+                            <div class="col-md-2">{{ formset.empty_form.unit_price|as_crispy_field }}</div>
+                            <div class="col-md-2"><p class="form-control-plaintext text-end fw-bold mb-0 subtotal-display">0.00</p></div>
+                            <div class="col-md-1 text-end">
+                                {% if formset.can_delete %}
+                                    <div class="d-none">{{ formset.empty_form.DELETE }}</div>
+                                    <button type="button" class="btn btn-danger btn-sm remove-form-row" title="Remove Item"><i class="fas fa-trash"></i></button>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+
+                    <button type="button" class="btn btn-primary add-form-row"><i class="fas fa-plus me-1"></i> Add Another Item</button>
+                </fieldset>
+
+                <div class="d-flex justify-content-between align-items-center">
+                     <button type="submit" class="btn btn-success btn-lg">Update Sales Order</button>
+                     <h3 class="mb-0">Total: <span id="grand-total" class="fw-bold">0.00</span></h3>
+                </div>
+            </div>
+        </div>
+    </form>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+$(document).ready(function() {
+    const getProductSalePriceUrl = "{% url 'sales:get_product_sale_price' %}";
+    const formsetContainer = $('#formset-container');
+    
+    $('#id_customer').select2({ placeholder: "Search for a customer", width: '100%' });
+
+    function initializeProductSelect2(element) {
+        $(element).find('select[name$="-product"]').select2({
+            placeholder: "Search for a product",
+            width: '100%'
+        });
+    }
+
+    function updateTotals() {
+        let grandTotal = 0;
+        formsetContainer.find('.formset-row:not(.d-none)').each(function() {
+            const quantity = parseFloat($(this).find('input[name$="-quantity"]').val()) || 0;
+            const unitPrice = parseFloat($(this).find('input[name$="-unit_price"]').val()) || 0;
+            const subtotal = quantity * unitPrice;
+            grandTotal += subtotal;
+            $(this).find('.subtotal-display').text(subtotal.toFixed(2));
+        });
+        $('#grand-total').text(grandTotal.toFixed(2));
+    }
+
+    function getProductPriceAjax() {
+        const selectedProductId = $(this).val();
+        const formsetRow = $(this).closest('.formset-row');
+        const unitPriceField = formsetRow.find('input[name$="-unit_price"]');
+        if (selectedProductId) {
+            unitPriceField.val('Loading...');
+            $.ajax({
+                url: getProductSalePriceUrl, data: { 'product_id': selectedProductId },
+                dataType: 'json',
+                success: function(data) {
+                    unitPriceField.val(parseFloat(data.sale_price || 0).toFixed(2)).trigger('change');
+                }
+            });
+        }
+    }
+
+    function attachEventListenersToRow(row) {
+        // *** মূল সমাধান এখানে ***
+        $(row).find('.remove-form-row').on('click', function() {
+            const currentRow = $(this).closest('.formset-row');
+            // যদি এটি ডাটাবেস থেকে আসা পুরোনো আইটেম হয় (যার একটি আইডি আছে)
+            if (currentRow.find('input[name$="-id"]').val()) {
+                // ডিলিট করার জন্য চেকবক্সটি চেক করা
+                currentRow.find('input[name$="-DELETE"]').prop('checked', true);
+                // এবং সারিটি পাতা থেকে লুকিয়ে ফেলা
+                currentRow.addClass('d-none');
+            } else {
+                // যদি এটি নতুন যোগ করা সারি হয়, তবে DOM থেকে সম্পূর্ণ মুছে ফেলা
+                currentRow.remove();
+                // মোট فرم-এর সংখ্যা কমানো
+                const totalFormsInput = $('#id_items-TOTAL_FORMS');
+                totalFormsInput.val(parseInt(totalFormsInput.val()) - 1);
+            }
+            updateTotals(); // মোট মূল্য আপডেট করা
+        });
+        
+        $(row).find('input[name$="-quantity"], input[name$="-unit_price"]').on('change keyup input', updateTotals);
+        $(row).find('select[name$="-product"]').on('change', getProductPriceAjax);
+    }
+    
+    $('.add-form-row').on('click', function() {
+        const totalFormsInput = $('#id_items-TOTAL_FORMS');
+        const formIndex = parseInt(totalFormsInput.val());
+        const newFormHtml = $('#empty-form').html().replace(/__prefix__/g, formIndex);
+        
+        formsetContainer.append(newFormHtml);
+        totalFormsInput.val(formIndex + 1);
+
+        const newRow = formsetContainer.find('.formset-row:last');
+        initializeProductSelect2(newRow);
+        attachEventListenersToRow(newRow);
+    });
+
+    formsetContainer.find('.formset-row').each(function() {
+        initializeProductSelect2(this);
+        attachEventListenersToRow(this);
+    });
+
+    $('#edit-sales-order-form').on('submit', function() {
+        formsetContainer.find('.formset-row').each(function() {
+            const productSelect = $(this).find('select[name$="-product"]');
+            if (!productSelect.val() && !$(this).find('input[name$="-id"]').val()) {
+                $(this).remove();
+            }
+        });
+    });
+
+    updateTotals();
+});
+</script>
+{% endblock %}

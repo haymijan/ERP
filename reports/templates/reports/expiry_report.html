@@ -1,0 +1,53 @@
+{% extends 'base.html' %}
+{% load humanize %}
+
+{% block title %}{{ title }}{% endblock %}
+{% block page_title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="card shadow">
+        <div class="card-header py-3">
+            <h6 class="m-0 font-weight-bold text-danger">
+                <i class="fas fa-calendar-times me-2"></i>List of Products Expiring in Next 90 Days
+            </h6>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-bordered table-striped table-hover">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Product Name</th>
+                            <th>Lot/Serial Number</th>
+                            <th>Warehouse</th>
+                            <th>Quantity</th>
+                            <th>Expiry Date</th>
+                            <th>Days Left</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for lot in page_obj %}
+                        <tr>
+                            <td>{{ lot.product.name }}</td>
+                            <td>{{ lot.lot_number|default:"N/A" }}</td>
+                            <td>{{ lot.location.warehouse.name }}</td>
+                            <td>{{ lot.quantity }}</td>
+                            <td>{{ lot.expiration_date|date:"Y-m-d" }}</td>
+                            <td>{{ lot.days_left }} day(s)</td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="6" class="text-center">No products are expiring in the next 90 days.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            
+            {# --- পেজিনেশন --- #}
+            {% include 'includes/pagination.html' %}
+
+        </div>
+    </div>
+</div>
+{% endblock %}

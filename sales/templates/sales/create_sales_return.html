@@ -1,0 +1,84 @@
+{% extends 'base.html' %}
+{% load crispy_forms_tags %}
+{% load humanize %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <h1 class="h3 mb-4 text-gray-800">{{ title }}</h1>
+
+    <div class="card shadow mb-4">
+        <div class="card-header py-3">
+            <h6 class="m-0 font-weight-bold text-primary">
+                {% if sales_order %}
+                    Original Order Details
+                {% else %}
+                    Find Sales Order to Return
+                {% endif %}
+            </h6>
+        </div>
+        <div class="card-body">
+            {% if not sales_order %}
+            <form method="get" action="">
+                {{ find_order_form|crispy }}
+                <button type="submit" class="btn btn-primary mt-3">Find Order</button>
+            </form>
+            {% else %}
+            <div class="row mb-4">
+                <div class="col-md-4"><strong>Order #:</strong> SO-{{ sales_order.id }}</div>
+                <div class="col-md-4"><strong>Customer:</strong> {{ sales_order.customer.name|default:"N/A" }}</div>
+                <div class="col-md-4"><strong>Order Date:</strong> {{ sales_order.order_date|date:"d M, Y" }}</div>
+            </div>
+
+            <form method="post">
+                {% csrf_token %}
+                {{ return_form|crispy }}
+
+                <h5 class="mt-4">Items to Return</h5>
+                <div class="table-responsive">
+                    <table class="table table-bordered">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Product</th>
+                                <th class="text-center">Original Qty</th>
+                                <th style="width: 150px;">Return Qty</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {{ item_formset.management_form }}
+                            {% for form in item_formset %}
+                                <tr>
+                                    <td>
+                                        {{ form.product.as_hidden }}
+                                        {{ form.lot_serial.as_hidden }}
+                                        
+                                        <strong>{{ form.sales_order_item.product.name }}</strong>
+                                        
+                                        {% if form.sales_order_item.lot_serial %}
+                                            <small class="text-muted d-block">Lot: {{ form.sales_order_item.lot_serial.lot_number }}</small>
+                                        {% endif %}
+                                    </td>
+                                    <td class="text-center">
+                                        {{ form.sales_order_item.quantity }}
+                                    </td>
+                                    <td>
+                                        {{ form.quantity }}
+                                        {% for error in form.quantity.errors %}
+                                            <div class="invalid-feedback d-block">{{ error }}</div>
+                                        {% endfor %}
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+
+                <button type="submit" class="btn btn-success mt-3">Process Return</button>
+                <a href="{% url 'sales:create_sales_return' %}" class="btn btn-secondary mt-3">Start Over</a>
+            </form>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

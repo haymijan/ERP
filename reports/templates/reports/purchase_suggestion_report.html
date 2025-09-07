@@ -1,0 +1,51 @@
+{% extends 'base.html' %}
+{% load humanize %}
+
+{% block title %}{{ title }}{% endblock %}
+{% block page_title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="card shadow">
+        <div class="card-header py-3">
+            <h6 class="m-0 font-weight-bold text-primary">
+                <i class="fas fa-lightbulb me-2"></i>Products to Reorder Based on Sales Velocity
+            </h6>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-bordered table-striped table-hover">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Product Name</th>
+                            <th>Product Code</th>
+                            <th>Current Stock</th>
+                            <th>Sold in Last 30 Days</th>
+                            <th>Suggested Reorder Qty</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in page_obj %}
+                        <tr>
+                            <td>{{ item.product.name }}</td>
+                            <td>{{ item.product.product_code|default:"N/A" }}</td>
+                            <td>{{ item.current_stock|intcomma }}</td>
+                            <td>{{ item.sold_last_30_days|intcomma }}</td>
+                            <td class="fw-bold text-danger">{{ item.suggested_quantity|intcomma }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="5" class="text-center">No purchase suggestions at the moment.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            
+            {# --- পেজিনেশন --- #}
+            {% include 'includes/pagination.html' %}
+
+        </div>
+    </div>
+</div>
+{% endblock %}

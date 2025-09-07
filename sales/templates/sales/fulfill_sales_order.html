@@ -1,0 +1,130 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <form method="post">
+        {% csrf_token %}
+        {{ formset.management_form }}
+
+        <div class="d-sm-flex align-items-center justify-content-between mb-4">
+            <h1 class="h3 mb-0 text-gray-800">{{ title }}</h1>
+            <div>
+                <a href="{% url 'sales:sales_order_detail' sales_order.pk %}" class="btn btn-secondary btn-sm">Cancel</a>
+                <button type="submit" class="btn btn-success btn-sm">
+                    <i class="fas fa-check me-1"></i> Confirm Fulfillment
+                </button>
+            </div>
+        </div>
+
+        <div class="card shadow mb-4">
+            <div class="card-header py-3">
+                <h6 class="m-0 font-weight-bold text-primary">Products to Fulfill</h6>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th style="width: 30%;">Product</th>
+                                <th style="width: 10%;">Ordered</th>
+                                <th style="width: 15%;">Quantity to Fulfill</th>
+                                <th style="width: 20%;">Source Location</th>
+                                <th style="width: 20%;" class="lot-serial-header">Lot/Serial Number</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for form, item in form_and_items %}
+                            <tr data-form-prefix="{{ form.prefix }}" data-product-id="{{ item.product.id }}" data-tracking-method="{{ item.product.tracking_method }}">
+                                <td class="align-middle">
+                                    {{ item.product.name }}
+                                    {{ form.sales_order_item_id }}
+                                </td>
+                                <td class="align-middle">{{ item.quantity }}</td>
+                                <td>{{ form.quantity_fulfilled }}</td>
+                                <td>{{ form.source_location }}</td>
+                                <td class="lot-serial-cell">
+                                    {{ form.lot_serial }}
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="5" class="text-center py-5">
+                                    <p class="mb-0">No items to fulfill.</p>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </form>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        function getFormField(formRow, fieldName) {
+            return formRow.querySelector(`[name*="${fieldName}"]`);
+        }
+
+        const getLotsUrl = "{% url 'sales:get_lots_by_location_and_product' %}";
+
+        function updateLotSerialOptions(formRow) {
+            const sourceLocationSelect = getFormField(formRow, 'source_location');
+            const lotSerialSelect = getFormField(formRow, 'lot_serial');
+            const productId = formRow.dataset.productId;
+            const locationId = sourceLocationSelect.value;
+            const trackingMethod = formRow.dataset.trackingMethod;
+            
+            // যদি ট্র্যাকিং পদ্ধতি 'none' হয়, তাহলে ড্রপডাউন লুকিয়ে ফেলবে এবং `required` করবে না
+            if (trackingMethod === 'none') {
+                lotSerialSelect.closest('td').style.display = 'none';
+                lotSerialSelect.required = false;
+                return;
+            } else {
+                lotSerialSelect.closest('td').style.display = '';
+            }
+
+            if (!locationId) {
+                lotSerialSelect.innerHTML = '<option value="">Select a location first</option>';
+                lotSerialSelect.required = true;
+                return;
+            }
+            
+            const ajaxUrl = `${getLotsUrl}?product_id=${productId}&location_id=${locationId}`;
+            
+            fetch(ajaxUrl)
+                .then(response => response.json())
+                .then(data => {
+                    lotSerialSelect.innerHTML = '<option value="">Select a lot/serial number</option>';
+                    if (data.length > 0) {
+                        data.forEach(lot => {
+                            const option = document.createElement('option');
+                            option.value = lot.id;
+                            option.textContent = `${lot.lot_number} (Available: ${lot.quantity})`;
+                            lotSerialSelect.appendChild(option);
+                        });
+                        lotSerialSelect.required = true;
+                    } else {
+                        lotSerialSelect.innerHTML = '<option value="">No lots available</option>';
+                        lotSerialSelect.required = false; // যদি কোনো লট না থাকে তাহলে `required` থাকবে না
+                    }
+                })
+                .catch(error => console.error('AJAX Error:', error));
+        }
+
+        document.querySelectorAll('tr[data-form-prefix]').forEach(formRow => {
+            const sourceLocationSelect = getFormField(formRow, 'source_location');
+            sourceLocationSelect.addEventListener('change', () => updateLotSerialOptions(formRow));
+            
+            // Initial call on page load
+            updateLotSerialOptions(formRow);
+        });
+    });
+</script>
+{% endblock %}

@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Receipt for Order SO-{{ order.id }}</title>
+    <style>
+        body {
+            font-family: 'monospace', sans-serif;
+            font-size: 10pt;
+            color: #000;
+        }
+        .receipt-container {
+            width: 80mm; /* স্ট্যান্ডার্ড POS প্রিন্টারের মাপ */
+            margin: 0 auto;
+            padding: 10px;
+        }
+        .header {
+            text-align: center;
+        }
+        .header h3, .header p {
+            margin: 0;
+        }
+        .item-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+        }
+        .item-table th, .item-table td {
+            padding: 5px 0;
+            border-bottom: 1px dashed #999;
+        }
+        .item-table th {
+            text-align: left;
+        }
+        .totals {
+            margin-top: 15px;
+        }
+        .totals-row {
+            display: flex;
+            justify-content: space-between;
+        }
+        .footer {
+            text-align: center;
+            margin-top: 20px;
+        }
+        .print-btn-container {
+            text-align: center;
+            margin-top: 20px;
+        }
+
+        /* প্রিন্ট করার সময় এই স্টাইলগুলো প্রয়োগ হবে */
+        @media print {
+            body {
+                margin: 0;
+            }
+            .receipt-container {
+                width: 100%; /* প্রিন্টারে পুরো জায়গা ব্যবহার করবে */
+                margin: 0;
+                padding: 0;
+            }
+            .print-btn-container, .back-btn-container {
+                display: none; /* প্রিন্ট করার সময় বাটনগুলো লুকিয়ে ফেলবে */
+            }
+        }
+        /* প্রিন্টারের কাগজের মাপ নির্ধারণ */
+        @page {
+            size: 80mm auto; /* প্রস্থ 80mm, উচ্চতা অটো */
+            margin: 5mm;
+        }
+    </style>
+</head>
+<body>
+    <div class="receipt-container">
+        <div class="header">
+            <h3>Safe Community Group</h3>
+            <p>Your Company Address</p>
+            <p>Phone: +123456789</p>
+            <hr>
+            <p>Order #: SO-{{ order.id }}</p>
+            <p>Date: {{ order.order_date|date:"d M Y, H:i" }}</p>
+        </div>
+
+        <table class="item-table">
+            <thead>
+                <tr>
+                    <th>Item</th>
+                    <th style="text-align: center;">Qty</th>
+                    <th style="text-align: right;">Total</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in order.items.all %}
+                <tr>
+                    <td>{{ item.product.name }}</td>
+                    <td style="text-align: center;">{{ item.quantity }}</td>
+                    <td style="text-align: right;">{{ DEFAULT_CURRENCY_SYMBOL }}{{ item.subtotal|floatformat:2 }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <div class="totals">
+            <div class="totals-row">
+                <span>Subtotal:</span>
+                <span>{{ DEFAULT_CURRENCY_SYMBOL }}{{ order.total_amount|floatformat:2 }}</span>
+            </div>
+            <div class="totals-row">
+                <h3>Total:</h3>
+                <h3>{{ DEFAULT_CURRENCY_SYMBOL }}{{ order.total_amount|floatformat:2 }}</h3>
+            </div>
+        </div>
+
+        <div class="footer">
+            <p>Thank you for your business!</p>
+        </div>
+
+        <div class="print-btn-container">
+            <button onclick="window.print()" style="padding: 10px; font-size: 16px;">Print Receipt</button>
+        </div>
+        <div class="back-btn-container" style="text-align: center; margin-top: 10px;">
+            <a href="{% url 'inventory:pos_view' %}">Back to POS</a>
+        </div>
+    </div>
+</body>
+</html>

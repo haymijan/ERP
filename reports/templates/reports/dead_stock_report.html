@@ -1,0 +1,49 @@
+{% extends 'base.html' %}
+{% load humanize %}
+
+{% block title %}{{ title }}{% endblock %}
+{% block page_title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="card shadow">
+        <div class="card-header py-3">
+            <h6 class="m-0 font-weight-bold text-secondary">
+                <i class="fas fa-box-open me-2"></i>List of products in stock but not sold in the last 90 days
+            </h6>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-bordered table-striped table-hover">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Product Name</th>
+                            <th>Product Code</th>
+                            <th>Warehouse</th>
+                            <th>Current Quantity</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for stock_item in page_obj %}
+                        <tr>
+                            <td>{{ stock_item.product.name }}</td>
+                            <td>{{ stock_item.product.product_code|default:"N/A" }}</td>
+                            <td>{{ stock_item.warehouse.name }}</td>
+                            <td>{{ stock_item.quantity|intcomma }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="4" class="text-center">No dead stock found.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            
+            {# --- পেজিনেশন --- #}
+            {% include 'includes/pagination.html' %}
+
+        </div>
+    </div>
+</div>
+{% endblock %}

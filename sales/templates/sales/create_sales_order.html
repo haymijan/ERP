@@ -1,0 +1,237 @@
+{% extends 'base.html' %}
+{% load crispy_forms_tags %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-sm-flex align-items-center justify-content-between mb-4">
+        <h1 class="h3 mb-0 text-gray-800">{{ title }}</h1>
+        <a href="{% url 'sales:sales_order_list' %}" class="btn btn-secondary btn-sm">Back to Sales Orders</a>
+    </div>
+
+    <form method="post" id="create-sales-order-form">
+        {% csrf_token %}
+        
+        <div class="card shadow mb-4">
+            <div class="card-body p-4">
+                <fieldset class="form-group border p-3 mb-4 rounded">
+                    <legend class="fw-bold fs-5 text-primary">Order Details</legend>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="{{ sales_order_form.customer.id_for_label }}" class="form-label">{{ sales_order_form.customer.label }}</label>
+                            <div class="input-group">
+                                {{ sales_order_form.customer }}
+                                <button class="btn btn-outline-secondary" type="button" data-bs-toggle="modal" data-bs-target="#addCustomerModal" title="Add New Customer">
+                                    <i class="fas fa-plus"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                             {{ sales_order_form.expected_delivery_date|as_crispy_field }}
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            {{ sales_order_form.status|as_crispy_field }}
+                        </div>
+                         <div class="col-md-6 mb-3">
+                            {{ sales_order_form.notes|as_crispy_field }}
+                        </div>
+                    </div>
+                </fieldset>
+
+                <fieldset class="form-group border p-3 mb-4 rounded">
+                    <legend class="fw-bold fs-5 text-primary">Order Items</legend>
+                    {{ item_formset.management_form }}
+                    
+                    <div id="formset-container">
+                        {% for form in item_formset %}
+                            <div class="formset-row row align-items-center mb-3 p-2 border rounded bg-light">
+                                <div class="col-md-5">{{ form.product|as_crispy_field }}</div>
+                                <div class="col-md-2">{{ form.quantity|as_crispy_field }}</div>
+                                <div class="col-md-2">{{ form.unit_price|as_crispy_field }}</div>
+                                <div class="col-md-2"><p class="form-control-plaintext text-end fw-bold mb-0 subtotal-display">0.00</p></div>
+                                <div class="col-md-1 text-end">
+                                    <button type="button" class="btn btn-danger btn-sm remove-form-row" title="Remove Item"><i class="fas fa-trash"></i></button>
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </div>
+
+                    {# Django-এর স্ট্যান্ডার্ড empty_form টেমপ্লেট, যা জাভাস্ক্রিপ্ট ব্যবহার করবে #}
+                    <div id="empty-form" class="d-none">
+                        <div class="formset-row row align-items-center mb-3 p-2 border rounded bg-light">
+                            <div class="col-md-5">{{ item_formset.empty_form.product|as_crispy_field }}</div>
+                            <div class="col-md-2">{{ item_formset.empty_form.quantity|as_crispy_field }}</div>
+                            <div class="col-md-2">{{ item_formset.empty_form.unit_price|as_crispy_field }}</div>
+                            <div class="col-md-2"><p class="form-control-plaintext text-end fw-bold mb-0 subtotal-display">0.00</p></div>
+                            <div class="col-md-1 text-end">
+                                <button type="button" class="btn btn-danger btn-sm remove-form-row" title="Remove Item"><i class="fas fa-trash"></i></button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <button type="button" class="btn btn-primary add-form-row"><i class="fas fa-plus me-1"></i> Add Another Item</button>
+                </fieldset>
+
+                <div class="d-flex justify-content-between align-items-center">
+                     <button type="submit" class="btn btn-success btn-lg">Save Sales Order</button>
+                     <h3 class="mb-0">Total: <span id="grand-total" class="fw-bold">0.00</span></h3>
+                </div>
+            </div>
+        </div>
+    </form>
+</div>
+
+{# Add Customer Modal (অপরিবর্তিত) #}
+<div class="modal fade" id="addCustomerModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Add New Customer</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form id="add-customer-form" action="{% url 'partners:ajax_add_customer' %}" method="post">
+                <div class="modal-body">
+                    {% csrf_token %}
+                    {{ customer_form|crispy }}
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                    <button type="submit" class="btn btn-primary">Save Customer</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+$(document).ready(function() {
+    // Django থেকে URL এবং অন্যান্য ভ্যারিয়েবল নেওয়া
+    const getProductSalePriceUrl = "{% url 'sales:get_product_sale_price' %}";
+    const ajaxAddCustomerUrl = "{% url 'partners:ajax_add_customer' %}";
+    const formsetContainer = $('#formset-container');
+    
+    // কাস্টমার ফিল্ডে Select2 চালু করা
+    $('#id_customer').select2({ placeholder: "Search for a customer", width: '100%' });
+
+    // প্রোডাক্ট ড্রপডাউনে Select2 চালু করার ফাংশন
+    function initializeProductSelect2(element) {
+        $(element).find('select[name$="-product"]').select2({
+            placeholder: "Search for a product",
+            width: '100%'
+        });
+    }
+
+    // পেজ লোড হওয়ার সময় বিদ্যমান সব প্রোডাক্ট ড্রপডাউনে Select2 চালু করা
+    formsetContainer.find('.formset-row').each(function() {
+        initializeProductSelect2(this);
+    });
+
+    // রিয়েল-টাইম মোট মূল্য হিসাব করার ফাংশন
+    function updateTotals() {
+        let grandTotal = 0;
+        formsetContainer.find('.formset-row').each(function() {
+            const quantity = parseFloat($(this).find('input[name$="-quantity"]').val()) || 0;
+            const unitPrice = parseFloat($(this).find('input[name$="-unit_price"]').val()) || 0;
+            const subtotal = quantity * unitPrice;
+            grandTotal += subtotal;
+            $(this).find('.subtotal-display').text(subtotal.toFixed(2));
+        });
+        $('#grand-total').text(grandTotal.toFixed(2));
+    }
+
+    // AJAX ব্যবহার করে পণ্যের দাম আনা
+    function getProductPriceAjax() {
+        const selectedProductId = $(this).val();
+        const formsetRow = $(this).closest('.formset-row');
+        const unitPriceField = formsetRow.find('input[name$="-unit_price"]');
+        if (selectedProductId) {
+            unitPriceField.val('Loading...');
+            $.ajax({
+                url: getProductSalePriceUrl,
+                data: { 'product_id': selectedProductId },
+                dataType: 'json',
+                success: function(data) {
+                    unitPriceField.val(parseFloat(data.sale_price || 0).toFixed(2)).trigger('change');
+                },
+                error: function() {
+                    unitPriceField.val('0.00').trigger('change');
+                }
+            });
+        } else {
+            unitPriceField.val('').trigger('change');
+        }
+    }
+
+    // নতুন আইটেম যোগ করার বাটন
+    $('.add-form-row').on('click', function() {
+        const totalFormsInput = $('#id_items-TOTAL_FORMS');
+        const formIndex = parseInt(totalFormsInput.val());
+        
+        // হিডেন টেমপ্লেট থেকে নতুন فرم-এর HTML নেওয়া হচ্ছে
+        const emptyFormTemplate = $('#empty-form').html();
+        // __prefix__ কে সঠিক ইনডেক্স দিয়ে পরিবর্তন করা হচ্ছে
+        const newFormHtml = emptyFormTemplate.replace(/__prefix__/g, formIndex);
+        
+        // নতুন فرم যোগ করা হচ্ছে
+        formsetContainer.append(newFormHtml);
+        
+        // মোট فرم-এর সংখ্যা ১ বাড়ানো হচ্ছে
+        totalFormsInput.val(formIndex + 1);
+
+        // নতুন যোগ হওয়া সারিতে Select2 এবং অন্যান্য ইভেন্ট চালু করা হচ্ছে
+        const newRow = formsetContainer.find('.formset-row:last');
+        initializeProductSelect2(newRow);
+        attachEventListenersToRow(newRow);
+    });
+
+    // আইটেম মুছে ফেলার বাটন
+    function attachEventListenersToRow(row) {
+        $(row).find('.remove-form-row').on('click', function() {
+            if (formsetContainer.find('.formset-row').length > 1) {
+                $(this).closest('.formset-row').remove();
+                updateTotals();
+                // ডিলিট করার পর মোট فرم-এর সংখ্যা আপডেট করা
+                const totalFormsInput = $('#id_items-TOTAL_FORMS');
+                totalFormsInput.val(parseInt(totalFormsInput.val()) - 1);
+            } else {
+                alert("You must have at least one item.");
+            }
+        });
+        
+        $(row).find('input[name$="-quantity"], input[name$="-unit_price"]').on('change keyup input', updateTotals);
+        $(row).find('select[name$="-product"]').on('change', getProductPriceAjax);
+    }
+    
+    // পেজ লোডের সময় সব সারিতে ইভেন্ট যুক্ত করা
+    formsetContainer.find('.formset-row').each(function() {
+        attachEventListenersToRow(this);
+    });
+
+    // পেজ লোড হওয়ার সময় মোট মূল্য হিসাব করা
+    updateTotals();
+
+    // নতুন কাস্টমার যোগ করার AJAX কোড (অপরিবর্তিত)
+    $('#add-customer-form').on('submit', function(e) {
+        e.preventDefault();
+        $.ajax({
+            type: 'POST',
+            url: ajaxAddCustomerUrl,
+            data: $(this).serialize(),
+            success: function(response) {
+                if (response.success) {
+                    const newOption = new Option(response.name, response.id, true, true);
+                    $('#id_customer').append(newOption).trigger('change');
+                    $('#addCustomerModal').modal('hide');
+                    $(e.target)[0].reset();
+                } else {
+                    alert('Error: ' + JSON.stringify(response.errors));
+                }
+            }
+        });
+    });
+});
+</script>
+{% endblock %}
