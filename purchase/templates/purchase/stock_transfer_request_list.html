@@ -1,0 +1,104 @@
+{% extends 'base.html' %}
+{% load crispy_forms_tags %}
+{% load humanize %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-sm-flex align-items-center justify-content-between mb-4">
+        <h1 class="h3 mb-0 text-gray-800">{{ title }}</h1>
+        <a href="{% url 'purchase:create_stock_transfer_request' %}" class="btn btn-primary btn-sm shadow-sm">
+            <i class="fas fa-plus fa-sm me-1"></i> Create New Transfer Request
+        </a>
+    </div>
+        <div class="card shadow mb-4">
+            <div class="card-header py-3">
+                <h6 class="m-0 font-weight-bold text-primary"><i class="fas fa-filter me-1"></i> Filter Requests</h6>
+            </div>
+            <div class="card-body">
+                <form method="get" action="">
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-3">{{ filter_form.start_date|as_crispy_field }}</div>
+                        <div class="col-md-3">{{ filter_form.end_date|as_crispy_field }}</div>
+                        <div class="col-md-3">{{ filter_form.product|as_crispy_field }}</div>
+                        <div class="col-md-3">{{ filter_form.requested_by|as_crispy_field }}</div>
+                    </div>
+                    <div class="row g-3 align-items-end">
+                        <div class="col-md-3">{{ filter_form.source_warehouse|as_crispy_field }}</div>
+                        <div class="col-md-3">{{ filter_form.destination_warehouse|as_crispy_field }}</div>
+                        <div class="col-md-3">{{ filter_form.status|as_crispy_field }}</div>
+                        <div class="col-md-3 d-flex">
+                            <button type="submit" class="btn btn-primary me-2 flex-grow-1">Apply</button>
+                            <a href="{% url 'purchase:stock_transfer_request_list' %}" class="btn btn-secondary flex-grow-1">Reset</a>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    <div class="card shadow mb-4">
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover" width="100%" cellspacing="0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Request #</th>
+                            <th>Product</th>
+                            <th>Quantity</th>
+                            <th>From</th>
+                            <th>To</th>
+                            <th>Status</th>
+                            <th>Requested By</th>
+                            <th>Requested At</th>
+                            <th class="text-center">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for transfer in transfer_requests %}
+                        <tr class="align-middle">
+                            <td>
+                                <a href="{% url 'purchase:stock_transfer_detail' transfer.pk %}">#{{ transfer.pk }}</a>
+                                {% if transfer.source_warehouse == user.warehouse and transfer.status == 'approved' %}
+                                    <br><small class="text-info fw-bold">Ready to Dispatch</small>
+                                {% endif %}
+                                {% if transfer.destination_warehouse == user.warehouse and transfer.status == 'in_transit' %}
+                                    <br><small class="text-primary fw-bold">Ready to Receive</small>
+                                {% endif %}
+                            </td>
+                            <td>{{ transfer.product.name }}</td>
+                            <td>{{ transfer.quantity|intcomma }}</td>
+                            <td>{{ transfer.source_warehouse.name }}</td>
+                            <td>{{ transfer.destination_warehouse.name }}</td>
+                            <td>
+                                <span class="badge 
+                                    {% if transfer.status == 'requested' %}bg-warning text-dark
+                                    {% elif transfer.status == 'approved' %}bg-info
+                                    {% elif transfer.status == 'in_transit' %}bg-primary
+                                    {% elif transfer.status == 'received' %}bg-success
+                                    {% elif transfer.status == 'rejected' or transfer.status == 'cancelled' %}bg-danger
+                                    {% else %}bg-secondary{% endif %}">
+                                    {{ transfer.get_status_display }}
+                                </span>
+                            </td>
+                            <td>{{ transfer.user.username }}</td>
+                            <td>{{ transfer.requested_at|date:"d M Y, H:i" }}</td>
+                            <td class="text-center">
+                                <a href="{% url 'purchase:stock_transfer_detail' transfer.pk %}" class="btn btn-sm btn-outline-primary">
+                                    Details
+                                </a>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="9" class="text-center py-5">
+                                <p class="mb-0">No stock transfer requests found.</p>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,152 @@
+{% extends 'base.html' %}
+{% load crispy_forms_tags %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+
+    <div class="d-flex flex-column flex-md-row align-items-start align-items-md-center justify-content-between mb-4 gap-3">
+        <h1 class="h3 mb-0 text-gray-800">{{ title }}</h1>
+        <div class="d-flex flex-wrap gap-2">
+            {% if user.is_superuser and transfer_request.status == 'requested' %}
+                <form method="post" action="{% url 'purchase:approve_stock_transfer' transfer_request.pk %}">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="approve">
+                    <button type="submit" class="btn btn-success btn-sm" onclick="return confirm('Are you sure you want to approve this stock transfer request?');">
+                        <i class="fas fa-check me-1"></i> Approve
+                    </button>
+                </form>
+                <form method="post" action="{% url 'purchase:approve_stock_transfer' transfer_request.pk %}">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="reject">
+                    <button type="submit" class="btn btn-danger btn-sm" onclick="return confirm('Are you sure you want to reject this stock transfer request?');">
+                        <i class="fas fa-times me-1"></i> Reject
+                    </button>
+                </form>
+            {% endif %}
+            <a href="{% url 'purchase:stock_transfer_request_list' %}" class="btn btn-secondary btn-sm">
+                <i class="fas fa-arrow-left me-1"></i> Back to List
+            </a>
+        </div>
+    </div>
+
+    <div class="card shadow mb-4">
+        <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
+            <h6 class="m-0 font-weight-bold text-primary">Request Details</h6>
+            <span class="badge 
+                {% if transfer_request.status == 'requested' %}bg-warning text-dark
+                {% elif transfer_request.status == 'approved' %}bg-info
+                {% elif transfer_request.status == 'in_transit' %}bg-primary
+                {% elif transfer_request.status == 'received' %}bg-success
+                {% elif transfer_request.status == 'rejected' or transfer_request.status == 'cancelled' %}bg-danger
+                {% endif %}">
+                {{ transfer_request.get_status_display }}
+            </span>
+        </div>
+        <div class="card-body">
+            <div class="row g-3">
+                <div class="col-md-6"><strong>Request ID:</strong><p class="text-muted">#{{ transfer_request.id }}</p></div>
+                <div class="col-md-6"><strong>Product:</strong><p class="text-muted">{{ transfer_request.product.name }}</p></div>
+                <div class="col-md-6"><strong>Quantity Requested:</strong><p class="text-muted">{{ transfer_request.quantity }}</p></div>
+                <div class="col-md-6"><strong>Requested By:</strong><p class="text-muted">{{ transfer_request.user.username }}</p></div>
+                <div class="col-md-6"><strong>From Warehouse (Source):</strong><p class="text-muted">{{ transfer_request.source_warehouse.name }}</p></div>
+                <div class="col-md-6"><strong>To Warehouse (Destination):</strong><p class="text-muted">{{ transfer_request.destination_warehouse.name }}</p></div>
+                <div class="col-md-6"><strong>Requested At:</strong><p class="text-muted">{{ transfer_request.requested_at|date:"F d, Y H:i" }}</p></div>
+                {% if transfer_request.approved_at %}<div class="col-md-6"><strong>Approved At:</strong><p class="text-muted">{{ transfer_request.approved_at|date:"F d, Y H:i" }}</p></div>{% endif %}
+            </div>
+            {% if transfer_request.notes %}<hr><strong>Notes:</strong><p class="text-muted">{{ transfer_request.notes|linebreaksbr }}</p>{% endif %}
+        </div>
+    </div>
+
+    {% if process_form %}
+    <div class="card shadow mb-4">
+        <div class="card-header py-3">
+            <h6 class="m-0 font-weight-bold text-primary">Dispatch Details (Send from {{ transfer_request.source_warehouse.name }})</h6>
+        </div>
+        <div class="card-body">
+            <form method="post" action="{% url 'purchase:stock_transfer_detail' transfer_request.pk %}">
+                {% csrf_token %}
+                {{ process_form|crispy }}
+                <button type="submit" name="process_transfer" class="btn btn-info mt-3" onclick="return confirm('Are you sure you want to process this transfer?');">
+                    <i class="fas fa-truck-loading me-1"></i> Process and Dispatch Transfer
+                </button>
+            </form>
+        </div>
+    </div>
+    {% endif %}
+
+    {% if receive_form %}
+    <div class="card shadow mb-4">
+        <div class="card-header py-3">
+            <h6 class="m-0 font-weight-bold text-primary">Receive Details (Receive at {{ transfer_request.destination_warehouse.name }})</h6>
+        </div>
+        <div class="card-body">
+            <form method="post" action="{% url 'purchase:receive_stock_transfer' transfer_request.pk %}">
+                {% csrf_token %}
+                {{ receive_form|crispy }}
+                <button type="submit" name="receive_transfer" class="btn btn-success mt-3" onclick="return confirm('Are you sure you want to confirm reception?');">
+                    <i class="fas fa-box-open me-1"></i> Confirm Reception
+                </button>
+            </form>
+        </div>
+    </div>
+    {% endif %}
+
+</div>
+{% endblock %}
+
+
+{% block extra_js %}
+<script>
+$(document).ready(function() {
+    // --- নতুন AJAX কোড শুরু ---
+    const sourceLocationSelect = $('#id_source_location');
+    const lotSerialSelect = $('#id_lot_serial');
+    const lotSerialRow = $('#div_id_lot_serial'); // crispy-forms সাধারণত ফিল্ডকে এভাবে র‍্যাপ করে
+
+    // শুধুমাত্র লট-ট্র্যাকড প্রোডাক্টের জন্য এই লজিকটি চলবে
+    {% if product_is_tracked %}
+        // প্রাথমিকভাবে লট ফিল্ড লুকিয়ে রাখা হলো
+        lotSerialRow.hide();
+
+        sourceLocationSelect.on('change', function() {
+            const locationId = $(this).val();
+            const productId = "{{ transfer_request.product.id }}";
+
+            lotSerialSelect.empty().append('<option value="">---------</option>');
+
+            if (locationId) {
+                lotSerialRow.show();
+                $.ajax({
+                    url: "{% url 'purchase:ajax_get_lots_for_location' %}",
+                    data: {
+                        'location_id': locationId,
+                        'product_id': productId
+                    },
+                    success: function(data) {
+                        if (data.lots.length > 0) {
+                            $.each(data.lots, function(index, lot) {
+                                lotSerialSelect.append($('<option>', {
+                                    value: lot.id,
+                                    text: lot.text
+                                }));
+                            });
+                        } else {
+                            lotSerialSelect.append('<option value="" disabled>No lots found in this location</option>');
+                        }
+                    },
+                    error: function() {
+                        console.error("Failed to load lots.");
+                        lotSerialRow.hide();
+                    }
+                });
+            } else {
+                lotSerialRow.hide();
+            }
+        });
+    {% endif %}
+    // --- নতুন AJAX কোড শেষ ---
+});
+</script>
+{% endblock %}

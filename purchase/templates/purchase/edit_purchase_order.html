@@ -1,0 +1,102 @@
+{% extends 'base.html' %}
+{% load crispy_forms_tags %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-10 col-lg-8">
+        <div class="card shadow-sm mt-4">
+            <div class="card-header bg-info text-white py-3">
+                <h2 class="mb-0 text-center">{{ title }}</h2>
+            </div>
+            <div class="card-body p-4">
+                <form method="post" id="purchase-order-form">
+                    {% csrf_token %}
+
+                    <fieldset class="form-group border p-3 mb-4 rounded">
+                        <legend class="fw-bold fs-5 text-info">Order Details</legend>
+                        {{ po_form|crispy }}
+                    </fieldset>
+
+                    <fieldset class="form-group border p-3 mb-4 rounded">
+                        <legend class="fw-bold fs-5 text-primary">Order Items</legend>
+                        {{ formset.management_form }}
+                        <div id="formset-container">
+                            {% for form in formset %}
+                                <div class="formset-row mb-3 p-3 border rounded bg-light">
+                                    {{ form|crispy }}
+                                    {% if formset.can_delete %}
+                                        <div class="form-check">
+                                            {{ form.DELETE }}
+                                            <label class="form-check-label" for="{{ form.DELETE.id_for_label }}">Remove Item</label>
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            {% endfor %}
+                        </div>
+                        <button type="button" class="btn btn-outline-primary btn-sm mt-3" id="add-another-item">Add Another Item</button>
+                    </fieldset>
+
+                    <div class="d-grid gap-2 mt-4">
+                        <button type="submit" class="btn btn-info btn-lg text-white">Update Purchase Order</button>
+                        <a href="{% url 'inventory:purchase_order_detail' po_form.instance.pk %}" class="btn btn-outline-secondary btn-lg">Cancel</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+{{ block.super }}
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script>
+    function updateElementIndex(el, prefix, ndx) {
+        const id_regex = new RegExp('(' + prefix + '-\\d+)');
+        const replacement = prefix + '-' + ndx;
+        if (el.attr("for")) el.attr("for", el.attr("for").replace(id_regex, replacement));
+        if (el.attr("id")) el.attr("id", el.attr("id").replace(id_regex, replacement));
+        if (el.attr("name")) el.attr("name", el.attr("name").replace(id_regex, replacement));
+    }
+
+    function addForm(selector, prefix) {
+        const totalForms = $('#id_' + prefix + '-TOTAL_FORMS');
+        const currentForms = parseInt(totalForms.val());
+        const newForm = $(selector).first().clone(true); // Clone with events
+        
+        newForm.find(':input').each(function() {
+            const name = $(this).attr('name');
+            if (name) {
+                const newName = name.replace(/-(\d+)-/, '-' + currentForms + '-');
+                $(this).attr('name', newName).val('');
+                if ($(this).attr('id')) {
+                    $(this).attr('id', 'id_' + newName);
+                }
+            }
+        });
+
+        newForm.find('label').each(function() {
+            updateElementIndex($(this), prefix, currentForms);
+        });
+
+        // Clear values for new form
+        newForm.find('input, select, textarea').val('');
+        newForm.find('input[type="checkbox"]').prop('checked', false);
+
+        // Update the index of the new form
+        newForm.find('.formset-row').attr('id', `id_${prefix}-${currentForms}`);
+
+        // Append to container
+        $('#formset-container').append(newForm);
+        totalForms.val(currentForms + 1);
+    }
+
+    $(document).ready(function() {
+        $('#add-another-item').click(function() {
+            addForm('.formset-row', 'items');
+        });
+    });
+</script>
+{% endblock %}

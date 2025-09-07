@@ -1,0 +1,117 @@
+{% extends 'base.html' %}
+{% load crispy_forms_tags %}
+{% load purchase_filters %} 
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <form method="post">
+        {% csrf_token %}
+        {{ formset.management_form }}
+
+        <div class="d-sm-flex align-items-center justify-content-between mb-4">
+            <h1 class="h3 mb-0 text-gray-800">{{ title }}</h1>
+            <div>
+                <a href="{% url 'purchase:purchase_order_detail' purchase_order.pk %}" class="btn btn-secondary btn-sm">Cancel</a>
+                <button type="submit" class="btn btn-success btn-sm">
+                    <i class="fas fa-check me-1"></i> Confirm Reception
+                </button>
+            </div>
+        </div>
+
+        <div class="card shadow mb-4">
+            <div class="card-header py-3">
+                <h6 class="m-0 font-weight-bold text-primary">Order Information</h6>
+            </div>
+            <div class="card-body row">
+                <div class="col-md-4">
+                    <strong>Supplier:</strong>
+                    <p class="text-muted">{{ purchase_order.supplier.name }}</p>
+                </div>
+                <div class="col-md-4">
+                    <strong>Order Date:</strong>
+                    <p class="text-muted">{{ purchase_order.order_date|date:"F d, Y" }}</p>
+                </div>
+                <div class="col-md-4">
+                    <strong>Expected Delivery:</strong>
+                    <p class="text-muted">{{ purchase_order.expected_delivery_date|date:"F d, Y" }}</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="card shadow mb-4">
+            <div class="card-header py-3">
+                <h6 class="m-0 font-weight-bold text-primary">Products to Receive</h6>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-bordered" id="dataTable" width="100%" cellspacing="0">
+                        <thead>
+                            <tr>
+                                <th>Product</th>
+                                <th>Ordered Quantity</th>
+                                <th>Received Quantity</th>
+                                <th>Destination Location</th>
+                                <th class="lot-serial-header">Lot/Serial Number</th>
+                                <th class="expiration-date-header">Expiration Date</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for form in formset %}
+                            <tr data-tracking-method="{{ form.product_tracking_method.value }}">
+                                <td>{{ form.purchase_order_item_id.value|get_purchase_order_item_name }}</td>
+                                <td>{{ form.purchase_order_item_id.value|get_purchase_order_item_quantity }}</td>
+                                <td>{{ form.quantity_to_receive }}</td>
+                                <td>{{ form.destination_location }}</td>
+                                <td class="lot-serial-cell">{{ form.lot_number }}</td>
+                                <td class="expiration-date-cell">{{ form.expiration_date }}</td>
+                                {{ form.purchase_order_item_id }}
+                                {{ form.product_tracking_method }}
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="6" class="text-center">No items found to receive for this purchase order.</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </form>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Hide or show fields and set placeholders based on tracking method
+    document.querySelectorAll('tbody tr').forEach(function(row) {
+        const trackingMethod = row.getAttribute('data-tracking-method');
+        const lotSerialCell = row.querySelector('.lot-serial-cell');
+        const expirationDateCell = row.querySelector('.expiration-date-cell');
+        const lotNumberField = row.querySelector('input[id*="lot_number"]');
+        const expirationDateField = row.querySelector('input[id*="expiration_date"]');
+        
+        if (trackingMethod === 'none') {
+            lotSerialCell.style.display = 'none';
+            expirationDateCell.style.display = 'none';
+        } else {
+            lotSerialCell.style.display = '';
+            if (trackingMethod === 'lot') {
+                if (lotNumberField) lotNumberField.setAttribute('placeholder', 'Enter Lot Number');
+                expirationDateCell.style.display = '';
+                if (expirationDateField) expirationDateField.setAttribute('placeholder', 'YYYY-MM-DD');
+            } else if (trackingMethod === 'serial') {
+                if (lotNumberField) lotNumberField.setAttribute('placeholder', 'Enter Serial Number');
+                expirationDateCell.style.display = 'none';
+            }
+        }
+    });
+
+    // You can remove the updateTableHeader function as it's no longer needed
+    // The headers are now always visible.
+});
+</script>
+{% endblock %}

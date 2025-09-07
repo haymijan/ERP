@@ -1,0 +1,52 @@
+{% extends 'base.html' %}
+{% load crispy_forms_tags %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-sm-flex align-items-center justify-content-between mb-4">
+        <h1 class="h3 mb-0 text-gray-800">{{ title }}</h1>
+        <a href="{% url 'purchase:stock_transfer_request_list' %}" class="btn btn-secondary btn-sm">Back to List</a>
+    </div>
+
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="card shadow mb-4">
+                <div class="card-body p-4">
+                    <p class="text-muted">You are creating a stock transfer request to your branch ({{ user.warehouse.name }}).</p>
+                    <form method="post">
+                        {% csrf_token %}
+                        <div class="row">
+                            <div class="col-md-6 mb-3">{{ form.product|as_crispy_field }}</div>
+                            <div class="col-md-6 mb-3">{{ form.quantity|as_crispy_field }}</div>
+                            <div class="col-md-6 mb-3">{{ form.source_warehouse|as_crispy_field }}</div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Destination Warehouse</label>
+                                <input type="text" class="form-control" value="{{ user.warehouse.name }}" disabled>
+                                {{ form.destination_warehouse }}
+                            </div>
+                            <div class="col-12 mb-3">{{ form.notes|as_crispy_field }}</div>
+                        </div>
+                        <div class="d-grid gap-2 mt-4">
+                            <button type="submit" class="btn btn-primary btn-lg">Submit Request</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    $(document).ready(function() {
+        $('.select2-enabled').select2({
+            placeholder: "Select a product",
+            allowClear: true,
+            width: '100%',
+        });
+    });
+</script>
+{% endblock %}

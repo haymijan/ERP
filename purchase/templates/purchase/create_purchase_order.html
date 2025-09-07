@@ -1,0 +1,276 @@
+{% extends 'base.html' %}
+{% load crispy_forms_tags %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <form method="post" id="po-form">
+        {% csrf_token %}
+
+        <div class="d-sm-flex align-items-center justify-content-between mb-4">
+            <h1 class="h3 mb-0 text-gray-800">{{ title }}</h1>
+            <div>
+                <a href="{% url 'purchase:purchase_order_list' %}" class="btn btn-secondary btn-sm">Cancel</a>
+                <button type="submit" class="btn btn-primary btn-sm">
+                    <i class="fas fa-save me-1"></i> Save Purchase Order
+                </button>
+            </div>
+        </div>
+
+        <div class="card shadow mb-4">
+            <div class="card-body">
+                <fieldset class="form-group border p-3 mb-4 rounded">
+                    <legend class="fw-bold fs-5 text-success">Order Details</legend>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            {% if po_form.supplier %}
+                            <label for="{{ po_form.supplier.id_for_label }}" class="form-label">{{ po_form.supplier.label }}</label>
+                            <div class="input-group">
+                                {{ po_form.supplier }}
+                                {% if user.is_superuser %}
+                                <button class="btn btn-outline-secondary" type="button" data-bs-toggle="modal" data-bs-target="#addSupplierModal">
+                                    <i class="fas fa-plus"></i>
+                                </button>
+                                {% endif %}
+                            </div>
+                            {% endif %}
+                        </div>
+                        <div class="col-md-6 mb-3">{{ po_form.expected_delivery_date|as_crispy_field }}</div>
+                        <div class="col-md-6 mb-3">{{ po_form.notes|as_crispy_field }}</div>
+                        <div class="d-none">{{ po_form.status }}</div>
+                        <div class="d-none">{{ po_form.user }}</div>
+                        <div class="d-none">{{ po_form.warehouse }}</div>
+                    </div>
+                </fieldset>
+
+                <fieldset class="form-group border p-3 mb-4 rounded">
+                    <legend class="fw-bold fs-5 text-success">Order Items</legend>
+                    {{ formset.management_form }}
+                    <div id="formset-container">
+                        {% for form in formset %}
+                        <div class="formset-row row align-items-center mb-3 p-2 border rounded bg-light">
+                            <div class="col-md-5">{{ form.product|as_crispy_field }}</div>
+                            <div class="col-md-2">{{ form.quantity|as_crispy_field }}</div>
+                            <div class="col-md-2">{{ form.unit_price|as_crispy_field }}</div>
+                            <div class="col-md-2"><p class="form-control-plaintext text-end fw-bold mb-0 subtotal-display">0.00</p></div>
+                            <div class="col-md-1 text-end">
+                                <button type="button" class="btn btn-danger btn-sm remove-form-row" title="Remove Item"><i class="fas fa-trash"></i></button>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    
+                    <div id="empty-form" class="d-none">
+                        <div class="formset-row row align-items-center mb-3 p-2 border rounded bg-light">
+                            <div class="col-md-5">{{ formset.empty_form.product|as_crispy_field }}</div>
+                            <div class="col-md-2">{{ formset.empty_form.quantity|as_crispy_field }}</div>
+                            <div class="col-md-2">{{ formset.empty_form.unit_price|as_crispy_field }}</div>
+                            <div class="col-md-2"><p class="form-control-plaintext text-end fw-bold mb-0 subtotal-display">0.00</p></div>
+                            <div class="col-md-1 text-end"><button type="button" class="btn btn-danger btn-sm remove-form-row" title="Remove Item"><i class="fas fa-trash"></i></button></div>
+                        </div>
+                    </div>
+
+                    <button type="button" class="btn btn-info add-form-row"><i class="fas fa-plus me-1"></i> Add Another Item</button>
+                </fieldset>
+                
+                <div class="d-flex justify-content-between align-items-center">
+                     <button type="submit" class="btn btn-success btn-lg">Save Purchase Order</button>
+                     <h3 class="mb-0">Total: <span id="grand-total" class="fw-bold">0.00</span></h3>
+                </div>
+            </div>
+        </div>
+    </form>
+</div>
+
+{# Add Supplier Modal #}
+{% if user.is_superuser %}
+<div class="modal fade" id="addSupplierModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header"><h5 class="modal-title">Add New Supplier</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+            <form id="add-supplier-form" action="{% url 'partners:ajax_add_supplier' %}" method="post">
+                <div class="modal-body">{% csrf_token %}{{ supplier_form|crispy }}</div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                    <button type="submit" class="btn btn-primary">Save Supplier</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    $(document).ready(function() {
+        const getProductsBySupplierUrl = "{% url 'purchase:get_products_by_supplier_ajax' %}";
+        const getProductPriceUrl = "{% url 'purchase:get_product_price_by_supplier_ajax' %}";
+        const ajaxAddSupplierUrl = "{% url 'partners:ajax_add_supplier' %}";
+        const formsetContainer = $('#formset-container');
+        const totalFormsInput = $('#id_items-TOTAL_FORMS');
+        
+        // Select2 ইনিশিয়ালাইজেশন
+        $('#id_supplier').select2({ placeholder: "Search for a supplier", width: '100%' });
+        
+        function initializeProductSelect2(element) {
+            const productSelect = $(element).find('select[name$="-product"]');
+            
+            if (productSelect.data('select2')) {
+                productSelect.select2('destroy');
+            }
+            
+            productSelect.select2({
+                placeholder: "Search for a product",
+                width: '100%'
+            });
+        }
+        
+        let cachedProducts = [];
+
+        function updateProductSelectOptions(productsData) {
+            formsetContainer.find('.formset-row').each(function() {
+                const productSelect = $(this).find('select[name$="-product"]');
+                const selectedValue = productSelect.val();
+                
+                productSelect.empty();
+                productSelect.append('<option value="">---</option>');
+                
+                productsData.forEach(p => {
+                    const option = new Option(p.name, p.id, false, false);
+                    productSelect.append(option);
+                });
+
+                if (selectedValue) {
+                    productSelect.val(selectedValue).trigger('change');
+                }
+                
+                initializeProductSelect2(this);
+            });
+        }
+
+        $('#id_supplier').on('change', function() {
+            const supplierId = $(this).val();
+            
+            $.ajax({
+                url: getProductsBySupplierUrl,
+                data: { 'supplier_id': supplierId },
+                dataType: 'json',
+                success: function(response) {
+                    cachedProducts = response.products;
+                    updateProductSelectOptions(cachedProducts);
+                    formsetContainer.find('input[name$="-unit_price"]').val('');
+                    updateTotals();
+                }
+            });
+        });
+
+        function updateTotals() {
+            let grandTotal = 0;
+            formsetContainer.find('.formset-row').each(function() {
+                const quantity = parseFloat($(this).find('input[name$="-quantity"]').val()) || 0;
+                const unitPrice = parseFloat($(this).find('input[name$="-unit_price"]').val()) || 0;
+                const subtotal = quantity * unitPrice;
+                grandTotal += subtotal;
+                $(this).find('.subtotal-display').text(subtotal.toFixed(2));
+            });
+            $('#grand-total').text(grandTotal.toFixed(2));
+        }
+
+        function getProductPriceAjax(row) {
+            const selectedProductId = $(row).find('select[name$="-product"]').val();
+            const supplierId = $('#id_supplier').val();
+            const unitPriceField = $(row).find('input[name$="-unit_price"]');
+
+            if (selectedProductId) {
+                unitPriceField.val('Loading...');
+                $.ajax({
+                    url: getProductPriceUrl,
+                    data: { 'product_id': selectedProductId, 'supplier_id': supplierId },
+                    dataType: 'json',
+                    success: function(data) {
+                        unitPriceField.val(parseFloat(data.purchase_price || 0).toFixed(2)).trigger('change');
+                    },
+                    error: function() {
+                        unitPriceField.val('0.00').trigger('change');
+                    }
+                });
+            }
+        }
+
+        $('.add-form-row').on('click', function() {
+            const formIndex = parseInt(totalFormsInput.val());
+            const newFormHtml = $('#empty-form').html().replace(/__prefix__/g, formIndex);
+            
+            formsetContainer.append(newFormHtml);
+            totalFormsInput.val(formIndex + 1);
+
+            const newRow = formsetContainer.find('.formset-row:last');
+            
+            updateProductSelectOptions(cachedProducts);
+            attachEventListenersToRow(newRow);
+        });
+
+        function attachEventListenersToRow(row) {
+            $(row).find('.remove-form-row').on('click', function() {
+                if (formsetContainer.find('.formset-row').length > 1) {
+                    $(this).closest('.formset-row').remove();
+                    updateTotals();
+                    totalFormsInput.val(parseInt(totalFormsInput.val()) - 1);
+                } else {
+                    alert("You must have at least one item.");
+                }
+            });
+            
+            $(row).find('input[name$="-quantity"], input[name$="-unit_price"]').on('change keyup input', updateTotals);
+            $(row).find('select[name$="-product"]').on('change', function() {
+                getProductPriceAjax($(this).closest('.formset-row'));
+            });
+        }
+
+        // প্রাথমিক লোডের সময় ইভেন্ট যুক্ত করা
+        formsetContainer.find('.formset-row').each(function() {
+            attachEventListenersToRow(this);
+            initializeProductSelect2(this);
+        });
+
+        // প্রাথমিক লোডের সময় পণ্যের তালিকা লোড করা
+        const initialSupplierId = $('#id_supplier').val();
+        if (initialSupplierId) {
+            $('#id_supplier').trigger('change');
+        } else {
+            // যদি কোনো সাপ্লায়ার সিলেক্ট করা না থাকে, তাহলে সব পণ্য লোড করা
+            $.ajax({
+                url: getProductsBySupplierUrl,
+                data: { 'supplier_id': '' }, // supplier_id খালি পাঠানো হচ্ছে
+                dataType: 'json',
+                success: function(response) {
+                    cachedProducts = response.products;
+                    updateProductSelectOptions(cachedProducts);
+                    updateTotals();
+                }
+            });
+        }
+
+        $('#add-supplier-form').on('submit', function(e) {
+            e.preventDefault();
+            $.ajax({
+                type: 'POST',
+                url: ajaxAddSupplierUrl,
+                data: $(this).serialize(),
+                success: function(response) {
+                    if (response.success) {
+                        const newOption = new Option(response.name, response.id, true, true);
+                        $('#id_supplier').append(newOption).trigger('change');
+                        $('#addSupplierModal').modal('hide');
+                        $(e.target)[0].reset();
+                    } else {
+                        alert('Error: ' + JSON.stringify(response.errors));
+                    }
+                }
+            });
+        });
+    });
+</script>
+{% endblock %}

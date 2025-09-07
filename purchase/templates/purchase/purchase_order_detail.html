@@ -1,0 +1,258 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-sm-flex align-items-center justify-content-between mb-4">
+        <h1 class="h3 mb-0 text-gray-800">{{ title }}</h1>
+        <div class="d-flex">
+            {# --- অ্যাডমিনদের জন্য নতুন 'Approve' এবং 'Reject' বাটন --- #}
+            {% if user.is_superuser %}
+                {% if purchase_order.status == 'purchase_request' %}
+                    <a href="#" class="btn btn-success btn-sm me-2" data-bs-toggle="modal" data-bs-target="#approveModal">
+                        <i class="fas fa-check me-1"></i> Approve Request
+                    </a>
+                    <form method="post" action="{% url 'purchase:purchase_order_detail' purchase_order.pk %}" class="me-2">
+                        {% csrf_token %}
+                        <input type="hidden" name="action" value="cancel">
+                        <button type="submit" class="btn btn-danger btn-sm" onclick="return confirm('Are you sure you want to reject this purchase request?');">
+                            <i class="fas fa-times me-1"></i> Reject
+                        </button>
+                    </form>
+                {% endif %}
+            {% endif %}
+
+            {% if purchase_order.status == 'draft' %}
+            <a href="{% url 'purchase:edit_purchase_order' purchase_order.pk %}" class="btn btn-warning btn-sm me-2">
+                <i class="fas fa-edit me-1"></i> Edit PO
+            </a>
+            <form method="post" action="{% url 'purchase:purchase_order_detail' purchase_order.pk %}">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="confirm">
+                <button type="submit" class="btn btn-success btn-sm me-2" onclick="return confirm('Are you sure you want to confirm this purchase order?');">
+                    <i class="fas fa-check me-1"></i> Confirm PO
+                </button>
+            </form>
+            {% endif %}
+
+            {% if purchase_order.status != 'received' and purchase_order.status != 'cancelled' %}
+            <form method="post" action="{% url 'purchase:purchase_order_detail' purchase_order.pk %}" class="me-2">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="cancel">
+                <button type="submit" class="btn btn-danger btn-sm" onclick="return confirm('Are you sure you want to cancel this purchase order?');">
+                    <i class="fas fa-times me-1"></i> Cancel PO
+                </button>
+            </form>
+            {% endif %}
+
+            {% if purchase_order.status == 'confirmed' or purchase_order.status == 'partially_received' %}
+            <a href="{% url 'purchase:receive_purchase_order' purchase_order.pk %}" class="btn btn-info btn-sm me-2">
+                <i class="fas fa-truck-loading me-1"></i> Receive PO
+            </a>
+            {% endif %}
+            
+            <a href="{% url 'purchase:export_single_purchase_order_pdf' purchase_order.pk %}" class="btn btn-secondary btn-sm me-2">
+                <i class="fas fa-file-pdf me-1"></i> Export PO to PDF
+            </a>
+            
+            {% if purchase_order.status == 'received' or purchase_order.status == 'partially_received' %}
+            <a href="{% url 'purchase:export_single_purchase_receipt_pdf' purchase_order.pk %}" class="btn btn-secondary btn-sm me-2">
+                <i class="fas fa-file-pdf me-1"></i> Export Receipt to PDF
+            </a>
+            {% endif %}
+
+            <a href="{% url 'purchase:purchase_order_list' %}" class="btn btn-secondary btn-sm">
+                <i class="fas fa-arrow-left me-1"></i> Back to List
+            </a>
+        </div>
+    </div>
+
+    <div class="card shadow mb-4">
+        <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
+            <h6 class="m-0 font-weight-bold text-primary">Purchase Order Details</h6>
+            <div class="dropdown no-arrow">
+                <span class="badge 
+                    {% if purchase_order.status == 'purchase_request' %}bg-warning text-dark
+                    {% elif purchase_order.status == 'draft' %}bg-secondary
+                    {% elif purchase_order.status == 'confirmed' %}bg-info
+                    {% elif purchase_order.status == 'partially_received' %}bg-warning
+                    {% elif purchase_order.status == 'received' %}bg-success
+                    {% elif purchase_order.status == 'cancelled' %}bg-danger
+                    {% endif %}">{{ purchase_order.get_status_display }}
+                </span>
+            </div>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-4">
+                    <strong>PO Number:</strong>
+                    <p class="text-muted">PO-{{ purchase_order.id }}</p>
+                </div>
+                <div class="col-md-4">
+                    <strong>Supplier:</strong>
+                    <p class="text-muted">{{ purchase_order.supplier.name|default:"N/A" }}</p>
+                </div>
+                 <div class="col-md-4">
+                    <strong>Branch:</strong>
+                    <p class="text-muted">{{ purchase_order.warehouse.name|default:"N/A" }}</p>
+                </div>
+                 <div class="col-md-4">
+                    <strong>Requested By:</strong>
+                    <p class="text-muted">{{ purchase_order.user.username|default:"N/A" }}</p>
+                </div>
+                <div class="col-md-4">
+                    <strong>Order Date:</strong>
+                    <p class="text-muted">{{ purchase_order.order_date|date:"F d, Y" }}</p>
+                </div>
+                <div class="col-md-4">
+                    <strong>Expected Delivery Date:</strong>
+                    <p class="text-muted">{{ purchase_order.expected_delivery_date|date:"F d, Y" }}</p>
+                </div>
+                <div class="col-md-4">
+                    <strong>Total Amount:</strong>
+                    <p class="text-muted">{{ DEFAULT_CURRENCY_SYMBOL }}{{ purchase_order.total_amount }}</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card shadow mb-4">
+        <div class="card-header py-3">
+            <h6 class="m-0 font-weight-bold text-primary">Purchase Order Items</h6>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-bordered" id="dataTable" width="100%" cellspacing="0">
+                    <thead>
+                        <tr>
+                            <th>Product</th>
+                            <th>Quantity</th>
+                            <th>Received</th>
+                            <th>Unit Price</th>
+                            <th>Subtotal</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in purchase_order.items.all %}
+                        <tr>
+                            <td>{{ item.product.name }}</td>
+                            <td>{{ item.quantity }}</td>
+                            <td>{{ item.quantity_received|default:0 }}</td>
+                            <td>{{ DEFAULT_CURRENCY_SYMBOL }}{{ item.unit_price }}</td>
+                            <td>{{ DEFAULT_CURRENCY_SYMBOL }}{{ item.total_price }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="5" class="text-center">No items for this purchase order.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+{# --- অ্যাডমিনদের জন্য Approve Modal --- #}
+<div class="modal fade" id="approveModal" tabindex="-1" aria-labelledby="approveModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="approveModalLabel">Approve Purchase Request</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <form method="post" action="{% url 'purchase:purchase_order_detail' purchase_order.pk %}" id="approve-request-form">
+        <div class="modal-body">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="approve_request">
+            
+            <p>Please select a supplier and confirm item prices to approve this purchase request.</p>
+            {{ approve_form.as_p }}
+            <hr>
+            
+            <h6 class="mb-3">Purchase Items</h6>
+            <div class="table-responsive">
+                <table class="table table-sm">
+                    <thead>
+                        <tr>
+                            <th>Product</th>
+                            <th>Quantity</th>
+                            <th>Unit Price</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {{ approve_formset.management_form }}
+                        {% for item_form in approve_formset %}
+                        <tr class="item-form-row">
+                            <td>{{ item_form.id }}{{ item_form.product_name }}</td>
+                            <td>{{ item_form.quantity }}</td>
+                            <td>{{ item_form.unit_price }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                 {# --- এখানে ফর্মসেটের ত্রুটিগুলো দেখানোর জন্য নতুন কোড যোগ করা হয়েছে --- #}
+                {% if approve_formset.non_form_errors %}
+                    <div class="alert alert-danger">
+                        <strong>Formset errors:</strong>
+                        {{ approve_formset.non_form_errors }}
+                    </div>
+                {% endif %}
+            </div>
+
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+            <button type="submit" class="btn btn-success">Approve</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    $(document).ready(function() {
+        // নতুন কোড: পপআপ খোলার পর select2 ইনিশিয়ালাইজ করা
+        $('#approveModal').on('shown.bs.modal', function () {
+            $('#id_supplier').select2({
+                dropdownParent: $('#approveModal'),
+                placeholder: "Search for a supplier",
+                width: '100%'
+            });
+        });
+
+        // সাপ্লায়ার পরিবর্তন হলে আইটেমের দাম আপডেট করা
+        const getProductPriceBySupplierUrl = "{% url 'purchase:get_product_price_by_supplier_ajax' %}";
+        
+        $('#id_supplier').on('change', function() {
+            const supplierId = $(this).val();
+            
+            $('.item-form-row').each(function() {
+                const row = $(this);
+                const productId = row.find('[name$="-product_name"]').val();
+                const unitPriceInput = row.find('[name$="-unit_price"]');
+
+                if (productId) {
+                    $.ajax({
+                        url: getProductPriceBySupplierUrl,
+                        data: {
+                            'product_id': productId,
+                            'supplier_id': supplierId
+                        },
+                        dataType: 'json',
+                        success: function(response) {
+                            if (response.purchase_price !== undefined) {
+                                unitPriceInput.val(parseFloat(response.purchase_price).toFixed(2));
+                            }
+                        }
+                    });
+                }
+            });
+        });
+    });
+</script>
+{% endblock %}
